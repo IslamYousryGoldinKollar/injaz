@@ -1,0 +1,652 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ============================================================================
+// ENUMS
+// ============================================================================
+
+enum Currency {
+  EGP
+  USD
+}
+
+enum PartyType {
+  CLIENT
+  VENDOR
+  EMPLOYEE
+  OWNER
+  OTHER
+}
+
+enum Direction {
+  INBOUND
+  OUTBOUND
+}
+
+enum DocumentType {
+  QUOTATION
+  PURCHASE_ORDER
+  INVOICE
+  VENDOR_BILL
+}
+
+enum DocumentStatus {
+  DRAFT
+  SENT
+  APPROVED
+  PARTIALLY_PAID
+  PAID
+  OVERDUE
+  CANCELLED
+}
+
+enum PaymentStatus {
+  PLANNED
+  PENDING
+  COMPLETED
+  PARTIAL
+  CANCELLED
+}
+
+enum PaymentMethod {
+  BANK_TRANSFER
+  CHECK
+  CASH
+  CREDIT_CARD
+  INSTAPAY
+  OTHER
+}
+
+enum ProjectStatus {
+  ACTIVE
+  COMPLETED
+  ON_HOLD
+  CANCELLED
+}
+
+enum SalaryStatus {
+  SCHEDULED
+  DEFERRED
+  PARTIAL
+  PAID
+  CANCELLED
+}
+
+enum LoanDirection {
+  TO_COMPANY
+  FROM_COMPANY
+}
+
+enum LoanStatus {
+  ACTIVE
+  PARTIALLY_REPAID
+  FULLY_REPAID
+}
+
+enum VatStatus {
+  PENDING
+  PAID
+  OVERDUE
+}
+
+enum Frequency {
+  WEEKLY
+  MONTHLY
+  QUARTERLY
+  YEARLY
+}
+
+enum DraftType {
+  PAYMENT
+  INVOICE
+  VENDOR_BILL
+  SALARY
+  LOAN_REPAYMENT
+}
+
+enum DraftStatus {
+  PENDING
+  REVIEWED
+  PUSHED
+  REJECTED
+}
+
+enum DraftSource {
+  VOICE
+  DOCUMENT
+  MANUAL
+}
+
+// ============================================================================
+// ORGANIZATION
+// ============================================================================
+
+model Organization {
+  id        String   @id @default(cuid())
+  name      String
+  currency  Currency @default(EGP)
+
+  users      User[]
+  parties    Party[]
+  projects   Project[]
+  payments   Payment[]
+  documents  Document[]
+  categories Category[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// ============================================================================
+// USER
+// ============================================================================
+
+model User {
+  id             String  @id @default(cuid())
+  email          String  @unique
+  name           String
+  role           String  @default("Employee")
+  avatar         String?
+  approvalStatus String  @default("pending")
+  telegramHandle String?
+  telegramChatId String?
+
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id])
+
+  partyId String? @unique
+  party   Party?  @relation("UserParty", fields: [partyId], references: [id])
+
+  salaries         Salary[]
+  ownerLoans       OwnerLoan[]
+  createdPayments  Payment[]      @relation("PaymentCreator")
+  createdDocuments Document[]     @relation("DocumentCreator")
+  notifications    Notification[]
+  tasks            Task[]         @relation("TaskAssignee")
+  createdTasks     Task[]         @relation("TaskCreator")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// ============================================================================
+// PARTY (Clients / Vendors / Employees)
+// ============================================================================
+
+model Party {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id])
+
+  type        PartyType
+  name        String
+  email       String?
+  phone       String?
+  contactName String?
+  address     String?
+  logo        String?
+  notes       String?
+
+  defaultPaymentTermsDays Int     @default(30)
+  hasVat                  Boolean @default(true)
+  vatRate                 Decimal @default(0.14)
+  hasIncomeTaxDeduction   Boolean @default(false)
+  incomeTaxRate           Decimal @default(0.03)
+
+  bankName      String?
+  accountNumber String?
+  iban          String?
+
+  documents   Document[]
+  payments    Payment[]
+  userProfile User?      @relation("UserParty")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([organizationId, name, type])
+  @@index([organizationId, type])
+}
+
+// ============================================================================
+// CATEGORY
+// ============================================================================
+
+model Category {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id])
+
+  name     String
+  type     Direction
+  color    String?
+  payments Payment[]
+
+  createdAt DateTime @default(now())
+
+  @@unique([organizationId, name])
+}
+
+// ============================================================================
+// PROJECT
+// ============================================================================
+
+model Project {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id])
+
+  name          String
+  clientPartyId String?
+  color         String?
+  status        ProjectStatus @default(ACTIVE)
+
+  documents Document[]
+  payments  Payment[]
+  tasks     Task[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([organizationId, name])
+}
+
+// ============================================================================
+// TASK
+// ============================================================================
+
+model Task {
+  id        String  @id @default(cuid())
+  projectId String
+  project   Project @relation(fields: [projectId], references: [id])
+
+  title       String
+  description String?
+  status      String  @default("Planned")
+  priority    String?
+  color       String?
+
+  assigneeId  String?
+  assignee    User?   @relation("TaskAssignee", fields: [assigneeId], references: [id])
+  createdById String?
+  createdBy   User?   @relation("TaskCreator", fields: [createdById], references: [id])
+
+  startDate DateTime?
+  endDate   DateTime?
+  dueDate   DateTime?
+  allDay    Boolean   @default(false)
+
+  subTasks       Json?
+  voiceNoteUrl   String?
+  voiceNoteCount Int     @default(0)
+
+  groupId     String?
+  dependsOn   Json?
+  lagMinutes  Int?
+  isMilestone Boolean @default(false)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// ============================================================================
+// DOCUMENT (Quotations / POs / Invoices / Bills)
+// ============================================================================
+
+model Document {
+  id             String         @id @default(cuid())
+  organizationId String
+  organization   Organization   @relation(fields: [organizationId], references: [id])
+
+  number    String
+  type      DocumentType
+  status    DocumentStatus @default(DRAFT)
+  direction Direction
+
+  partyId   String
+  party     Party    @relation(fields: [partyId], references: [id])
+  projectId String?
+  project   Project? @relation(fields: [projectId], references: [id])
+
+  parentDocumentId String?
+  parentDocument   Document?  @relation("DocumentChain", fields: [parentDocumentId], references: [id])
+  childDocuments   Document[] @relation("DocumentChain")
+
+  issueDate DateTime
+  dueDate   DateTime?
+
+  currency        Currency @default(EGP)
+  subtotal        Decimal
+  vatRate         Decimal  @default(0)
+  vatAmount       Decimal  @default(0)
+  incomeTaxRate   Decimal  @default(0)
+  incomeTaxAmount Decimal  @default(0)
+  grossAmount     Decimal
+  netAmount       Decimal
+  paidAmount      Decimal  @default(0)
+  remainingAmount Decimal
+
+  lineItems   DocumentLineItem[]
+  allocations PaymentAllocation[]
+
+  fileUrl  String?
+  fileName String?
+
+  eInvoiceNumber    String?
+  vatReportingMonth String?
+
+  notes       String?
+  createdById String
+  createdBy   User     @relation("DocumentCreator", fields: [createdById], references: [id])
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([organizationId, type, number])
+  @@index([organizationId, type, status])
+  @@index([partyId])
+}
+
+model DocumentLineItem {
+  id         String   @id @default(cuid())
+  documentId String
+  document   Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
+
+  description String
+  quantity    Decimal @default(1)
+  unitPrice   Decimal
+  discount    Decimal @default(0)
+  total       Decimal
+  vatAmount   Decimal @default(0)
+  sortOrder   Int     @default(0)
+}
+
+// ============================================================================
+// PAYMENT
+// ============================================================================
+
+model Payment {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id])
+
+  number    String
+  direction Direction
+  status    PaymentStatus @default(PLANNED)
+
+  partyId    String
+  party      Party     @relation(fields: [partyId], references: [id])
+  categoryId String?
+  category   Category? @relation(fields: [categoryId], references: [id])
+  projectId  String?
+  project    Project?  @relation(fields: [projectId], references: [id])
+
+  plannedDate    DateTime
+  actualDate     DateTime?
+  expectedAmount Decimal
+  actualAmount   Decimal?
+  currency       Currency       @default(EGP)
+  method         PaymentMethod?
+  reference      String?
+  description    String?
+
+  allocations PaymentAllocation[]
+
+  salaryId       String?
+  salary         Salary?       @relation(fields: [salaryId], references: [id])
+  loanId         String?
+  loan           OwnerLoan?    @relation(fields: [loanId], references: [id])
+  vatLiabilityId String?
+  vatLiability   VatLiability? @relation(fields: [vatLiabilityId], references: [id])
+
+  isInstallment     Boolean   @default(false)
+  installmentNumber Int?
+  totalInstallments Int?
+  parentPaymentId   String?
+  parentPayment     Payment?  @relation("Installments", fields: [parentPaymentId], references: [id])
+  installments      Payment[] @relation("Installments")
+
+  notes       String?
+  createdById String
+  createdBy   User     @relation("PaymentCreator", fields: [createdById], references: [id])
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([organizationId, number])
+  @@index([organizationId, direction, status])
+  @@index([partyId])
+  @@index([plannedDate])
+}
+
+model PaymentAllocation {
+  id         String   @id @default(cuid())
+  paymentId  String
+  payment    Payment  @relation(fields: [paymentId], references: [id], onDelete: Cascade)
+  documentId String
+  document   Document @relation(fields: [documentId], references: [id])
+  amount     Decimal
+
+  @@unique([paymentId, documentId])
+}
+
+// ============================================================================
+// SALARY
+// ============================================================================
+
+model Salary {
+  id             String       @id @default(cuid())
+  userId         String
+  user           User         @relation(fields: [userId], references: [id])
+  month          String
+  currency       Currency     @default(EGP)
+  grossAmount    Decimal
+  deductions     Json?
+  netAmount      Decimal
+  status         SalaryStatus @default(SCHEDULED)
+  scheduledDate  DateTime
+  deferredUntil  DateTime?
+  deferralReason String?
+  payments       Payment[]
+  paidAmount     Decimal      @default(0)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([userId, month])
+}
+
+// ============================================================================
+// OWNER LOAN
+// ============================================================================
+
+model OwnerLoan {
+  id              String        @id @default(cuid())
+  ownerId         String
+  owner           User          @relation(fields: [ownerId], references: [id])
+  ownerName       String
+  direction       LoanDirection
+  currency        Currency      @default(EGP)
+  principalAmount Decimal
+  currentBalance  Decimal
+  loanDate        DateTime
+  status          LoanStatus    @default(ACTIVE)
+  payments        Payment[]
+  notes           String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// ============================================================================
+// VAT LIABILITY
+// ============================================================================
+
+model VatLiability {
+  id            String    @id @default(cuid())
+  month         String    @unique
+  collectedVat  Decimal   @default(0)
+  deductibleVat Decimal   @default(0)
+  netVatPayable Decimal   @default(0)
+  dueDate       DateTime
+  status        VatStatus @default(PENDING)
+  paidDate      DateTime?
+  payments      Payment[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// ============================================================================
+// RECURRING EXPENSE
+// ============================================================================
+
+model RecurringExpense {
+  id          String    @id @default(cuid())
+  name        String
+  vendorName  String
+  category    String
+  currency    Currency  @default(EGP)
+  amount      Decimal
+  frequency   Frequency
+  startDate   DateTime
+  endDate     DateTime?
+  nextDueDate DateTime
+  isActive    Boolean   @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// ============================================================================
+// FINANCIAL DRAFT (AI staging)
+// ============================================================================
+
+model FinancialDraft {
+  id     String      @id @default(cuid())
+  type   DraftType
+  status DraftStatus @default(PENDING)
+  source DraftSource
+
+  partyName       String?
+  amount          Decimal?
+  currency        Currency   @default(EGP)
+  date            DateTime?
+  description     String?
+  direction       Direction?
+  category        String?
+  subtotal        Decimal?
+  vatAmount       Decimal?
+  incomeTaxAmount Decimal?
+
+  voiceNoteUrl String?
+  transcript   String?
+  documentUrl  String?
+  documentName String?
+
+  confidence Decimal?
+  rawText    String?
+  pushedToId String?
+  pushedAt   DateTime?
+
+  createdById String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+// ============================================================================
+// DAILY WORKSHEET
+// ============================================================================
+
+model DailyWorksheet {
+  id            String   @id
+  userId        String
+  date          String
+  focusTasks    Json
+  upcomingTasks Json
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+}
+
+// ============================================================================
+// SYSTEM SETTINGS
+// ============================================================================
+
+model SystemSetting {
+  id        String   @id
+  value     Json
+  updatedAt DateTime @updatedAt
+}
+
+// ============================================================================
+// NOTIFICATION
+// ============================================================================
+
+model Notification {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  message   String
+  link      String
+  isRead    Boolean  @default(false)
+  createdAt DateTime @default(now())
+}
+
+// ============================================================================
+// QUICK TASK (Day checklist)
+// ============================================================================
+
+model QuickTask {
+  id             String   @id @default(cuid())
+  ownerUid       String
+  title          String
+  status         String   @default("Todo")
+  date           String
+  details        String?
+  endDate        String?
+  voiceNoteCount Int      @default(0)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+}
+
+// ============================================================================
+// DAY ORDER
+// ============================================================================
+
+model DayOrder {
+  id        String   @id
+  uid       String
+  dateKey   String
+  orderData Json
+  updatedAt DateTime @updatedAt
+}
+
+// ============================================================================
+// TASK NOTE
+// ============================================================================
+
+model TaskNote {
+  id        String   @id
+  uid       String
+  targetId  String
+  note      String
+  updatedAt DateTime @updatedAt
+}
+
+// ============================================================================
+// VOICE NOTE
+// ============================================================================
+
+model VoiceNote {
+  id         String   @id @default(cuid())
+  targetId   String
+  ownerUid   String
+  audioUrl   String
+  durationMs Int?
+  transcript String?
+  createdAt  DateTime @default(now())
+}
