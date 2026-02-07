@@ -489,7 +489,7 @@ export default function FinancialsPage() {
           ) : (
             <div className="divide-y">
               {filtered.map((p: any) => {
-                const gross = Number(p.grossAmount || p.expectedAmount || 0)
+                const gross = Number(p.grossAmount) || Number(p.expectedAmount) || 0
                 return (
                   <button key={p.id} className="flex w-full items-center justify-between px-4 py-3 text-left transition-colors hover:bg-accent/50" onClick={() => handleSelect(p.id)}>
                     <div className="flex items-center gap-3">
@@ -783,11 +783,11 @@ export default function FinancialsPage() {
   // PAYMENT DETAIL VIEW
   // ═══════════════════════════════════════════════════════════════════════
   function renderPaymentDetail(p: any) {
-    const gross = Number(p.grossAmount || p.expectedAmount || 0)
-    const sub = Number(p.subtotal || 0)
-    const vat = Number(p.vatAmount || 0)
-    const tax = Number(p.incomeTaxAmount || 0)
-    const net = Number(p.netBankAmount || p.actualAmount || gross)
+    const gross = Number(p.grossAmount) || Number(p.expectedAmount) || 0
+    const sub = Number(p.subtotal) || 0
+    const vat = Number(p.vatAmount) || 0
+    const tax = Number(p.incomeTaxAmount) || 0
+    const net = Number(p.netBankAmount) || Number(p.actualAmount) || gross
     const hasBreakdown = vat > 0 || tax > 0
 
     return (

@@ -197,7 +197,7 @@ export default function PartiesPage() {
                 <Receipt className={cn("h-4 w-4", form.hasVat ? "text-blue-600" : "text-muted-foreground")} />
                 VAT {form.hasVat ? "ON" : "OFF"}
               </button>
-              {form.hasVat && <Input className="w-20" type="number" value={form.vatRate} onChange={(e) => setForm({ ...form, vatRate: e.target.value })} suffix="%" />}
+              {form.hasVat && <Input className="w-20" type="number" value={form.vatRate} onChange={(e) => setForm({ ...form, vatRate: e.target.value })} placeholder="%" />}
             </div>
             <div className="flex items-center gap-3">
               <button type="button" onClick={() => setForm({ ...form, hasIncomeTaxDeduction: !form.hasIncomeTaxDeduction })}
@@ -207,7 +207,7 @@ export default function PartiesPage() {
                 <Percent className={cn("h-4 w-4", form.hasIncomeTaxDeduction ? "text-amber-600" : "text-muted-foreground")} />
                 Tax Deduction {form.hasIncomeTaxDeduction ? "ON" : "OFF"}
               </button>
-              {form.hasIncomeTaxDeduction && <Input className="w-20" type="number" value={form.incomeTaxRate} onChange={(e) => setForm({ ...form, incomeTaxRate: e.target.value })} suffix="%" />}
+              {form.hasIncomeTaxDeduction && <Input className="w-20" type="number" value={form.incomeTaxRate} onChange={(e) => setForm({ ...form, incomeTaxRate: e.target.value })} placeholder="%" />}
             </div>
           </div>
 
@@ -317,7 +317,7 @@ export default function PartiesPage() {
                 <h3 className="mb-2 font-semibold">Payments ({selected.payments.length})</h3>
                 <div className="divide-y rounded-lg border">
                   {selected.payments.map((p: any) => {
-                    const gross = Number(p.grossAmount || p.expectedAmount || 0)
+                    const gross = Number(p.grossAmount) || Number(p.expectedAmount) || 0
                     return (
                       <div key={p.id} className="flex items-center justify-between px-3 py-2.5 text-sm">
                         <div className="flex items-center gap-2">
