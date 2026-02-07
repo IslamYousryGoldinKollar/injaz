@@ -23,14 +23,14 @@ import {
 import { useState } from "react"
 
 const navItems = [
-  { label: "Dashboard", href: "/", icon: LayoutDashboard },
-  { label: "Financials", href: "/financials", icon: Banknote },
-  { label: "Drafts", href: "/financials/drafts", icon: FileText },
+  { label: "AI Assistant", href: "/", icon: LayoutDashboard },
+  { label: "Parties", href: "/parties", icon: Users },
   { label: "Projects", href: "/projects", icon: FolderKanban },
   { label: "Tasks", href: "/tasks", icon: ListTodo },
   { label: "Day Planner", href: "/day", icon: CalendarCheck2 },
-  { label: "Invoices", href: "/financials/invoices", icon: Receipt },
-  { label: "Users", href: "/settings/users", icon: Users },
+  { label: "Financials", href: "/financials", icon: Banknote },
+  { label: "Documents", href: "/financials/invoices", icon: Receipt },
+  { label: "Drafts", href: "/financials/drafts", icon: FileText },
   { label: "Settings", href: "/settings", icon: Settings },
 ]
 

@@ -3,67 +3,194 @@
 import { useAuth } from "@/contexts/auth-context"
 import { useUser } from "@/contexts/user-context"
 import { useRouter } from "next/navigation"
-import { useEffect } from "react"
-import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card"
-import {
-  Banknote,
-  FolderKanban,
-  ListTodo,
-  FileText,
-  TrendingUp,
-  Users,
-} from "lucide-react"
-import Link from "next/link"
+import { useEffect, useState, useRef, useCallback } from "react"
+import { Button } from "@/components/ui/button"
+import { VoiceRecorder } from "@/components/ui/voice-recorder"
+import { Send, Loader2, Bot, User, Sparkles } from "lucide-react"
+import { cn } from "@/lib/utils"
 
-const quickLinks = [
-  { label: "Financials", href: "/financials", icon: Banknote, color: "text-emerald-600", bg: "bg-emerald-50" },
-  { label: "Projects", href: "/projects", icon: FolderKanban, color: "text-blue-600", bg: "bg-blue-50" },
-  { label: "Tasks", href: "/tasks", icon: ListTodo, color: "text-violet-600", bg: "bg-violet-50" },
-  { label: "Drafts", href: "/financials/drafts", icon: FileText, color: "text-amber-600", bg: "bg-amber-50" },
-  { label: "Invoices", href: "/financials/invoices", icon: TrendingUp, color: "text-rose-600", bg: "bg-rose-50" },
-  { label: "Users", href: "/settings/users", icon: Users, color: "text-cyan-600", bg: "bg-cyan-50" },
-]
+interface Message {
+  role: "user" | "assistant"
+  content: string
+}
 
-export default function DashboardPage() {
+export default function HomePage() {
   const { authUser } = useAuth()
   const { currentUser } = useUser()
   const router = useRouter()
+  const [messages, setMessages] = useState<Message[]>([])
+  const [input, setInput] = useState("")
+  const [loading, setLoading] = useState(false)
+  const messagesEndRef = useRef<HTMLDivElement>(null)
+  const inputRef = useRef<HTMLTextAreaElement>(null)
 
   useEffect(() => {
     if (!authUser) router.push("/login")
   }, [authUser, router])
 
+  const scrollToBottom = useCallback(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" })
+  }, [])
+
+  useEffect(() => { scrollToBottom() }, [messages, scrollToBottom])
+
+  const sendMessage = async (text: string) => {
+    if (!text.trim() || loading || !currentUser) return
+    const userMsg: Message = { role: "user", content: text.trim() }
+    const newMessages = [...messages, userMsg]
+    setMessages(newMessages)
+    setInput("")
+    setLoading(true)
+
+    try {
+      const res = await fetch("/api/ai/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          messages: newMessages,
+          userId: currentUser.id,
+          orgId: currentUser.organizationId,
+        }),
+      })
+      const data = await res.json()
+      if (data.content) {
+        setMessages([...newMessages, { role: "assistant", content: data.content }])
+      } else if (data.error) {
+        setMessages([...newMessages, { role: "assistant", content: `Error: ${data.error}${data.details ? ` — ${data.details}` : ""}` }])
+      }
+    } catch {
+      setMessages([...newMessages, { role: "assistant", content: "Sorry, I couldn't process that request. Please try again." }])
+    } finally {
+      setLoading(false)
+      inputRef.current?.focus()
+    }
+  }
+
+  const handleVoiceRecorded = async (blob: Blob) => {
+    setLoading(true)
+    try {
+      const formData = new FormData()
+      formData.append("audio", blob)
+      const res = await fetch("/api/ai/transcribe", { method: "POST", body: formData })
+      const data = await res.json()
+      if (data.text) {
+        await sendMessage(data.text)
+      }
+    } catch {
+      setMessages((prev) => [...prev, { role: "assistant", content: "Failed to transcribe audio. Please try again." }])
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault()
+      sendMessage(input)
+    }
+  }
+
   if (!authUser || !currentUser) return null
 
+  const suggestions = [
+    "Show me the financial summary",
+    "Create a payment to Ahmed for 5000 EGP",
+    "List all active projects",
+    "Add a task: Review contract by Friday",
+    "Who are our vendors?",
+  ]
+
   return (
-    <div className="space-y-8">
-      <div>
-        <h1 className="text-3xl font-bold">
-          Welcome back, {currentUser.name.split(" ")[0]}
-        </h1>
-        <p className="mt-1 text-muted-foreground">
-          Here&apos;s your overview for today
-        </p>
+    <div className="flex h-full flex-col">
+      {/* Messages area */}
+      <div className="flex-1 overflow-y-auto">
+        {messages.length === 0 ? (
+          <div className="flex h-full flex-col items-center justify-center px-4">
+            <div className="mb-8 flex h-16 w-16 items-center justify-center rounded-2xl bg-primary/10">
+              <Sparkles className="h-8 w-8 text-primary" />
+            </div>
+            <h1 className="mb-2 text-2xl font-semibold">Hi {currentUser.name.split(" ")[0]}, how can I help?</h1>
+            <p className="mb-8 text-center text-muted-foreground">
+              Ask me anything — manage payments, tasks, projects, or look up data.
+            </p>
+            <div className="flex flex-wrap justify-center gap-2">
+              {suggestions.map((s) => (
+                <button
+                  key={s}
+                  onClick={() => sendMessage(s)}
+                  className="rounded-full border px-4 py-2 text-sm transition-colors hover:bg-accent"
+                >
+                  {s}
+                </button>
+              ))}
+            </div>
+          </div>
+        ) : (
+          <div className="mx-auto max-w-3xl space-y-6 p-4">
+            {messages.map((msg, i) => (
+              <div key={i} className={cn("flex gap-3", msg.role === "user" && "justify-end")}>
+                {msg.role === "assistant" && (
+                  <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary/10">
+                    <Bot className="h-4 w-4 text-primary" />
+                  </div>
+                )}
+                <div
+                  className={cn(
+                    "max-w-[80%] rounded-2xl px-4 py-3 text-sm leading-relaxed",
+                    msg.role === "user"
+                      ? "bg-primary text-primary-foreground"
+                      : "bg-muted"
+                  )}
+                >
+                  <div className="whitespace-pre-wrap">{msg.content}</div>
+                </div>
+                {msg.role === "user" && (
+                  <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-secondary">
+                    <User className="h-4 w-4" />
+                  </div>
+                )}
+              </div>
+            ))}
+            {loading && (
+              <div className="flex gap-3">
+                <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/10">
+                  <Bot className="h-4 w-4 text-primary" />
+                </div>
+                <div className="rounded-2xl bg-muted px-4 py-3">
+                  <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+                </div>
+              </div>
+            )}
+            <div ref={messagesEndRef} />
+          </div>
+        )}
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        {quickLinks.map((item) => (
-          <Link key={item.href} href={item.href}>
-            <Card className="transition-shadow hover:shadow-md cursor-pointer">
-              <CardHeader className="flex flex-row items-center gap-4 pb-2">
-                <div className={`rounded-lg p-2.5 ${item.bg}`}>
-                  <item.icon className={`h-5 w-5 ${item.color}`} />
-                </div>
-                <CardTitle className="text-base">{item.label}</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-sm text-muted-foreground">
-                  Manage {item.label.toLowerCase()}
-                </p>
-              </CardContent>
-            </Card>
-          </Link>
-        ))}
+      {/* Input area */}
+      <div className="border-t bg-background p-4">
+        <div className="mx-auto flex max-w-3xl items-end gap-2">
+          <VoiceRecorder onRecorded={handleVoiceRecorded} disabled={loading} />
+          <div className="relative flex-1">
+            <textarea
+              ref={inputRef}
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              onKeyDown={handleKeyDown}
+              placeholder="Ask Injaz AI anything..."
+              rows={1}
+              className="w-full resize-none rounded-xl border bg-background px-4 py-3 pr-12 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+              disabled={loading}
+            />
+            <Button
+              size="icon"
+              className="absolute bottom-1.5 right-1.5 h-8 w-8 rounded-lg"
+              onClick={() => sendMessage(input)}
+              disabled={!input.trim() || loading}
+            >
+              <Send className="h-4 w-4" />
+            </Button>
+          </div>
+        </div>
       </div>
     </div>
   )
