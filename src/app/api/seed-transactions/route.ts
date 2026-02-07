@@ -281,25 +281,34 @@ export async function POST(req: NextRequest) {
     const body = await req.json().catch(() => ({}))
     const firebaseUid = body.firebaseUid || null
 
+    const ADMINS = [
+      { id: "p4g86ngGCkfb9ryk3R707CWKPIs2", email: "islam.yousry@goldinkollar.com", name: "Islam Yousry" },
+      { id: "CwiLoJz05afRtcL0QuZN2fhmx0s1", email: "abdozidan1@gmail.com", name: "Abdo Zidan" },
+      { id: "7esbWimnRpYEF0PpajkhafQmQlg2", email: "sherif.designs@gmail.com", name: "Sherif" },
+    ]
+
     // Bootstrap: ensure org exists
     let org = await prisma.organization.findFirst()
     if (!org) {
       org = await prisma.organization.create({
-        data: { id: "injaz-main", name: "Injaz", currency: "EGP" },
+        data: { id: "goldinkollar-main", name: "Goldin Kollar", currency: "EGP" },
+      })
+    } else if (org.name !== "Goldin Kollar") {
+      org = await prisma.organization.update({
+        where: { id: org.id },
+        data: { name: "Goldin Kollar" },
       })
     }
 
-    // Bootstrap: ensure at least one user exists
-    let user = firebaseUid
-      ? await prisma.user.findUnique({ where: { id: firebaseUid } })
-      : await prisma.user.findFirst({ where: { organizationId: org.id } })
-
-    if (!user) {
-      user = await prisma.user.create({
-        data: {
-          id: firebaseUid || "seed-admin",
-          email: "admin@injaz.app",
-          name: "Islam Yousry",
+    // Bootstrap: create all 3 admin users
+    for (const admin of ADMINS) {
+      await prisma.user.upsert({
+        where: { id: admin.id },
+        update: { email: admin.email, name: admin.name, role: "Admin", approvalStatus: "approved" },
+        create: {
+          id: admin.id,
+          email: admin.email,
+          name: admin.name,
           role: "Admin",
           organizationId: org.id,
           approvalStatus: "approved",
@@ -307,8 +316,10 @@ export async function POST(req: NextRequest) {
       })
     }
 
+    // Use the primary admin (Islam) as the createdBy for payments
+    const primaryAdmin = firebaseUid || ADMINS[0].id
     const orgId = org.id
-    const userId = user.id
+    const userId = primaryAdmin
 
     // Clean existing payments (only non-draft) so we can re-seed
     const existingCount = await prisma.payment.count({ where: { organizationId: orgId, isDraft: false } })

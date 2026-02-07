@@ -7,12 +7,20 @@ export async function syncUserFromFirebase(firebaseUser: {
   email: string
   displayName?: string | null
 }) {
+  const ADMIN_UIDS = [
+    "CwiLoJz05afRtcL0QuZN2fhmx0s1",
+    "7esbWimnRpYEF0PpajkhafQmQlg2",
+    "p4g86ngGCkfb9ryk3R707CWKPIs2",
+  ]
+
   let org = await prisma.organization.findFirst()
   if (!org) {
     org = await prisma.organization.create({
-      data: { id: "injaz-main", name: "Injaz", currency: "EGP" },
+      data: { id: "goldinkollar-main", name: "Goldin Kollar", currency: "EGP" },
     })
   }
+
+  const isAdmin = ADMIN_UIDS.includes(firebaseUser.uid)
 
   const user = await prisma.user.upsert({
     where: { id: firebaseUser.uid },
@@ -24,7 +32,8 @@ export async function syncUserFromFirebase(firebaseUser: {
       id: firebaseUser.uid,
       email: firebaseUser.email,
       name: firebaseUser.displayName || firebaseUser.email.split("@")[0],
-      role: "Employee",
+      role: isAdmin ? "Admin" : "Employee",
+      approvalStatus: isAdmin ? "approved" : "pending",
       organizationId: org.id,
     },
     include: { organization: true },
