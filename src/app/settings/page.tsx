@@ -7,17 +7,21 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { getSystemSettings, saveSystemSettings } from "@/lib/actions/ai-actions"
 import { getCategories, createCategory, deleteCategory } from "@/lib/actions/financial-actions"
-import { Save, Trash2, Plus, Bot, Tag, Webhook } from "lucide-react"
+import { updateUserProfile } from "@/lib/actions/user-actions"
+import { Save, Trash2, Plus, Bot, Tag, Webhook, UserCircle, Moon, Sun, Monitor } from "lucide-react"
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 export default function SettingsPage() {
-  const { currentUser } = useUser()
+  const { currentUser, refreshUsers } = useUser()
   const orgId = currentUser?.organizationId
   const [aiPrompt, setAiPrompt] = useState("")
   const [aiContext, setAiContext] = useState("")
   const [categories, setCategories] = useState<any[]>([])
   const [newCat, setNewCat] = useState({ name: "", type: "OUTBOUND" })
   const [saved, setSaved] = useState(false)
+  const [profileForm, setProfileForm] = useState({ name: "", phone: "" })
+  const [profileSaved, setProfileSaved] = useState(false)
+  const [theme, setTheme] = useState("system")
 
   const load = useCallback(async () => {
     if (!orgId) return
@@ -33,6 +37,42 @@ export default function SettingsPage() {
     setCategories(cats)
   }, [orgId])
   useEffect(() => { void load() }, [load])
+
+  useEffect(() => {
+    if (currentUser) {
+      setProfileForm({ name: currentUser.name || "", phone: (currentUser as any).phone || "" })
+    }
+  }, [currentUser])
+
+  const applyTheme = useCallback((t: string) => {
+    const root = document.documentElement
+    if (t === "dark") { root.classList.add("dark") }
+    else if (t === "light") { root.classList.remove("dark") }
+    else {
+      if (window.matchMedia("(prefers-color-scheme: dark)").matches) root.classList.add("dark")
+      else root.classList.remove("dark")
+    }
+  }, [])
+
+  useEffect(() => {
+    const stored = localStorage.getItem("theme") || "system"
+    setTheme(stored)
+    applyTheme(stored)
+  }, [applyTheme])
+
+  const changeTheme = (t: string) => {
+    setTheme(t)
+    localStorage.setItem("theme", t)
+    applyTheme(t)
+  }
+
+  const saveProfile = async () => {
+    if (!currentUser) return
+    await updateUserProfile(currentUser.id, { name: profileForm.name || undefined, phone: profileForm.phone || undefined })
+    await refreshUsers()
+    setProfileSaved(true)
+    setTimeout(() => setProfileSaved(false), 2000)
+  }
 
   const saveAiSettings = async () => {
     await saveSystemSettings("ai_settings", { systemPrompt: aiPrompt, companyContext: aiContext })
@@ -55,6 +95,52 @@ export default function SettingsPage() {
   return (
     <div className="mx-auto max-w-2xl space-y-6">
       <h1 className="text-2xl font-bold">Settings</h1>
+
+      {/* Profile */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2"><UserCircle className="h-5 w-5" /> Profile</CardTitle>
+          <CardDescription>Update your display name and contact info.</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div>
+            <label className="mb-1 block text-sm font-medium">Name</label>
+            <Input value={profileForm.name} onChange={(e) => setProfileForm({ ...profileForm, name: e.target.value })} placeholder="Your name" />
+          </div>
+          <div>
+            <label className="mb-1 block text-sm font-medium">Phone</label>
+            <Input value={profileForm.phone} onChange={(e) => setProfileForm({ ...profileForm, phone: e.target.value })} placeholder="Phone number" />
+          </div>
+          <div>
+            <label className="mb-1 block text-sm font-medium">Email</label>
+            <Input value={currentUser?.email || ""} disabled className="opacity-60" />
+          </div>
+          <Button onClick={saveProfile} className="w-full">
+            <Save className="h-4 w-4" /> {profileSaved ? "Saved!" : "Save Profile"}
+          </Button>
+        </CardContent>
+      </Card>
+
+      {/* Theme */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2"><Moon className="h-5 w-5" /> Appearance</CardTitle>
+          <CardDescription>Choose your preferred color theme.</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="flex gap-2">
+            {[
+              { value: "light", label: "Light", icon: Sun },
+              { value: "dark", label: "Dark", icon: Moon },
+              { value: "system", label: "System", icon: Monitor },
+            ].map((t) => (
+              <Button key={t.value} variant={theme === t.value ? "default" : "outline"} className="flex-1 gap-2" onClick={() => changeTheme(t.value)}>
+                <t.icon className="h-4 w-4" /> {t.label}
+              </Button>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
 
       {/* AI Configuration */}
       <Card>

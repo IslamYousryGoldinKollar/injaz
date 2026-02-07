@@ -51,3 +51,10 @@ export async function updateUserApproval(userId: string, status: string) {
     data: { approvalStatus: status },
   })
 }
+
+export async function updateUserProfile(userId: string, data: {
+  name?: string
+  phone?: string
+}) {
+  return prisma.user.update({ where: { id: userId }, data })
+}
