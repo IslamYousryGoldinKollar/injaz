@@ -86,10 +86,15 @@ export async function createPayment(data: {
   netBankAmount?: number
 }) {
   try {
-    return await prisma.payment.create({ data: data as never })
-  } catch (error) {
-    console.error("[createPayment] DB error:", error)
-    throw error
+    // Strip undefined values to avoid Prisma issues
+    const clean: Record<string, any> = {}
+    for (const [k, v] of Object.entries(data)) {
+      if (v !== undefined && v !== null && v !== "") clean[k] = v
+    }
+    return await prisma.payment.create({ data: clean as never })
+  } catch (error: any) {
+    console.error("[createPayment] DB error:", error?.message || error)
+    throw new Error(`Payment creation failed: ${error?.message || "Unknown error"}`)
   }
 }
 
@@ -116,11 +121,19 @@ export async function deletePayment(id: string) {
 }
 
 export async function getNextPaymentNumber(orgId: string, direction: Direction) {
-  const count = await prisma.payment.count({
-    where: { organizationId: orgId, direction },
-  })
   const prefix = direction === "INBOUND" ? "RCV" : "PAY"
-  return `${prefix}-${String(count + 1).padStart(4, "0")}`
+  // Find the highest existing number for this prefix to avoid collisions
+  const latest = await prisma.payment.findFirst({
+    where: { organizationId: orgId, number: { startsWith: prefix } },
+    orderBy: { number: "desc" },
+    select: { number: true },
+  })
+  let nextNum = 1
+  if (latest?.number) {
+    const match = latest.number.match(/(\d+)$/)
+    if (match) nextNum = parseInt(match[1], 10) + 1
+  }
+  return `${prefix}-${String(nextNum).padStart(4, "0")}`
 }
 
 export async function getNextDraftNumber(orgId: string) {
