@@ -7,8 +7,8 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
 import { SlideOver } from "@/components/ui/slide-over"
-import { getParties, createParty, getPartyById, deleteParty, getPartyStats } from "@/lib/actions/party-actions"
-import { Plus, Building2, Users, Briefcase, Search, Phone, Mail, Trash2 } from "lucide-react"
+import { getParties, createParty, getPartyById, updateParty, deleteParty, getPartyStats } from "@/lib/actions/party-actions"
+import { Plus, Building2, Users, Briefcase, Search, Phone, Mail, Trash2, Pencil, Save } from "lucide-react"
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 const partyTypes = [
@@ -27,6 +27,8 @@ export default function PartiesPage() {
   const [showCreate, setShowCreate] = useState(false)
   const [selected, setSelected] = useState<any>(null)
   const [form, setForm] = useState({ type: "VENDOR", name: "", email: "", phone: "", contactName: "", address: "", notes: "" })
+  const [editing, setEditing] = useState(false)
+  const [editForm, setEditForm] = useState({ name: "", email: "", phone: "", contactName: "", address: "", notes: "" })
 
   const orgId = currentUser?.organizationId
   const load = useCallback(async () => {
@@ -50,6 +52,26 @@ export default function PartiesPage() {
   const handleSelect = async (id: string) => {
     const p = await getPartyById(id)
     setSelected(p)
+    setEditing(false)
+    if (p) {
+      setEditForm({ name: p.name, email: p.email || "", phone: p.phone || "", contactName: p.contactName || "", address: p.address || "", notes: p.notes || "" })
+    }
+  }
+
+  const handleSave = async () => {
+    if (!selected) return
+    await updateParty(selected.id, {
+      name: editForm.name || undefined,
+      email: editForm.email || undefined,
+      phone: editForm.phone || undefined,
+      contactName: editForm.contactName || undefined,
+      address: editForm.address || undefined,
+      notes: editForm.notes || undefined,
+    })
+    const updated = await getPartyById(selected.id)
+    setSelected(updated)
+    setEditing(false)
+    load()
   }
 
   const handleDelete = async (id: string) => {
@@ -149,32 +171,54 @@ export default function PartiesPage() {
       </SlideOver>
 
       {/* Party Detail */}
-      <SlideOver open={!!selected} onClose={() => setSelected(null)} title={selected?.name} wide>
+      <SlideOver open={!!selected} onClose={() => { setSelected(null); setEditing(false) }} title={selected?.name} wide>
         {selected && (
           <div className="space-y-6">
             <div className="flex items-center justify-between">
               <Badge variant={selected.type === "CLIENT" ? "info" : selected.type === "VENDOR" ? "warning" : "secondary"}>
                 {selected.type}
               </Badge>
-              <Button variant="ghost" size="sm" className="text-destructive" onClick={() => handleDelete(selected.id)}>
-                <Trash2 className="h-4 w-4" /> Delete
-              </Button>
+              <div className="flex gap-1">
+                <Button variant="outline" size="sm" onClick={() => setEditing(!editing)}>
+                  {editing ? "Cancel" : <><Pencil className="h-3 w-3" /> Edit</>}
+                </Button>
+                <Button variant="ghost" size="sm" className="text-destructive" onClick={() => handleDelete(selected.id)}>
+                  <Trash2 className="h-4 w-4" />
+                </Button>
+              </div>
             </div>
-            <div className="grid gap-3 sm:grid-cols-2">
-              {selected.email && <div><p className="text-xs text-muted-foreground">Email</p><p className="text-sm">{selected.email}</p></div>}
-              {selected.phone && <div><p className="text-xs text-muted-foreground">Phone</p><p className="text-sm">{selected.phone}</p></div>}
-              {selected.contactName && <div><p className="text-xs text-muted-foreground">Contact</p><p className="text-sm">{selected.contactName}</p></div>}
-              {selected.address && <div><p className="text-xs text-muted-foreground">Address</p><p className="text-sm">{selected.address}</p></div>}
-              <div><p className="text-xs text-muted-foreground">VAT</p><p className="text-sm">{selected.hasVat ? `${Number(selected.vatRate) * 100}%` : "No VAT"}</p></div>
-              <div><p className="text-xs text-muted-foreground">Payment Terms</p><p className="text-sm">{selected.defaultPaymentTermsDays} days</p></div>
-            </div>
+
+            {editing ? (
+              <div className="space-y-3">
+                <Input placeholder="Name *" value={editForm.name} onChange={(e) => setEditForm({ ...editForm, name: e.target.value })} />
+                <Input placeholder="Email" type="email" value={editForm.email} onChange={(e) => setEditForm({ ...editForm, email: e.target.value })} />
+                <Input placeholder="Phone" value={editForm.phone} onChange={(e) => setEditForm({ ...editForm, phone: e.target.value })} />
+                <Input placeholder="Contact Person" value={editForm.contactName} onChange={(e) => setEditForm({ ...editForm, contactName: e.target.value })} />
+                <Input placeholder="Address" value={editForm.address} onChange={(e) => setEditForm({ ...editForm, address: e.target.value })} />
+                <textarea className="w-full rounded-lg border bg-transparent px-3 py-2 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring" placeholder="Notes" rows={3} value={editForm.notes} onChange={(e) => setEditForm({ ...editForm, notes: e.target.value })} />
+                <Button className="w-full" onClick={handleSave}><Save className="h-4 w-4" /> Save Changes</Button>
+              </div>
+            ) : (
+              <>
+                <div className="grid gap-3 sm:grid-cols-2">
+                  {selected.email && <div><p className="text-xs text-muted-foreground">Email</p><p className="text-sm">{selected.email}</p></div>}
+                  {selected.phone && <div><p className="text-xs text-muted-foreground">Phone</p><p className="text-sm">{selected.phone}</p></div>}
+                  {selected.contactName && <div><p className="text-xs text-muted-foreground">Contact</p><p className="text-sm">{selected.contactName}</p></div>}
+                  {selected.address && <div><p className="text-xs text-muted-foreground">Address</p><p className="text-sm">{selected.address}</p></div>}
+                  <div><p className="text-xs text-muted-foreground">VAT</p><p className="text-sm">{selected.hasVat ? `${Number(selected.vatRate) * 100}%` : "No VAT"}</p></div>
+                  <div><p className="text-xs text-muted-foreground">Payment Terms</p><p className="text-sm">{selected.defaultPaymentTermsDays} days</p></div>
+                </div>
+                {selected.notes && <div><p className="text-xs text-muted-foreground">Notes</p><p className="text-sm">{selected.notes}</p></div>}
+              </>
+            )}
+
             {selected.payments?.length > 0 && (
               <div>
                 <h3 className="mb-2 font-semibold">Recent Payments ({selected.payments.length})</h3>
                 <div className="divide-y rounded-lg border">
                   {selected.payments.map((p: any) => (
                     <div key={p.id} className="flex items-center justify-between px-3 py-2 text-sm">
-                      <span>{p.number}</span>
+                      <span>{p.description || p.number}</span>
                       <span className="font-medium">{Number(p.expectedAmount).toLocaleString()} EGP</span>
                     </div>
                   ))}
@@ -183,12 +227,25 @@ export default function PartiesPage() {
             )}
             {selected.documents?.length > 0 && (
               <div>
-                <h3 className="mb-2 font-semibold">Recent Documents ({selected.documents.length})</h3>
+                <h3 className="mb-2 font-semibold">Documents ({selected.documents.length})</h3>
                 <div className="divide-y rounded-lg border">
                   {selected.documents.map((d: any) => (
                     <div key={d.id} className="flex items-center justify-between px-3 py-2 text-sm">
                       <span>{d.number} ({d.type})</span>
                       <span>{d.status}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+            {selected.projects?.length > 0 && (
+              <div>
+                <h3 className="mb-2 font-semibold">Projects ({selected.projects.length})</h3>
+                <div className="divide-y rounded-lg border">
+                  {selected.projects.map((p: any) => (
+                    <div key={p.id} className="flex items-center justify-between px-3 py-2 text-sm">
+                      <span>{p.name}</span>
+                      <Badge variant={p.status === "ACTIVE" ? "success" : "secondary"} className="text-xs">{p.status}</Badge>
                     </div>
                   ))}
                 </div>
