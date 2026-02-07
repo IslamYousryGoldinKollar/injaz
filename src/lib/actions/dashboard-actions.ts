@@ -138,6 +138,32 @@ export async function getProjectBreakdown(organizationId: string) {
   }).sort((a, b) => b.income - a.income)
 }
 
+export async function getOverdueAlerts(organizationId: string) {
+  const now = new Date()
+  const [overduePayments, overdueTasks] = await Promise.all([
+    prisma.payment.findMany({
+      where: {
+        organizationId,
+        plannedDate: { lt: now },
+        status: { in: ["PLANNED", "PENDING"] },
+      },
+      include: { party: true, project: true },
+      orderBy: { plannedDate: "asc" },
+      take: 10,
+    }),
+    prisma.task.findMany({
+      where: {
+        dueDate: { lt: now },
+        status: { notIn: ["Done", "Cancelled"] },
+      },
+      include: { project: true, assignee: true },
+      orderBy: { dueDate: "asc" },
+      take: 10,
+    }),
+  ])
+  return { overduePayments, overdueTasks }
+}
+
 export async function getTopParties(organizationId: string, limit = 10) {
   const parties = await prisma.party.findMany({
     where: { organizationId },

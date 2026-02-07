@@ -7,12 +7,12 @@ import { useEffect, useState, useCallback } from "react"
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { getDashboardStats, getCategoryBreakdown, getMonthlyBreakdown, getProjectBreakdown, getTopParties } from "@/lib/actions/dashboard-actions"
+import { getDashboardStats, getCategoryBreakdown, getMonthlyBreakdown, getProjectBreakdown, getTopParties, getOverdueAlerts } from "@/lib/actions/dashboard-actions"
 import { formatCurrency, cn } from "@/lib/utils"
 import { DashboardSkeleton } from "@/components/ui/skeleton"
 import {
   TrendingUp, TrendingDown, Banknote, Users, FolderKanban, ListTodo,
-  ArrowUpRight, ArrowDownLeft, Sparkles,
+  ArrowUpRight, ArrowDownLeft, Sparkles, AlertTriangle,
 } from "lucide-react"
 import Link from "next/link"
 
@@ -26,6 +26,7 @@ export default function HomePage() {
   const [monthly, setMonthly] = useState<any[]>([])
   const [projects, setProjects] = useState<any[]>([])
   const [topParties, setTopParties] = useState<any[]>([])
+  const [alerts, setAlerts] = useState<any>({ overduePayments: [], overdueTasks: [] })
   const [loading, setLoading] = useState(true)
 
   const orgId = currentUser?.organizationId
@@ -37,14 +38,15 @@ export default function HomePage() {
   const load = useCallback(async () => {
     if (!orgId) return
     setLoading(true)
-    const [s, c, m, p, tp] = await Promise.all([
+    const [s, c, m, p, tp, al] = await Promise.all([
       getDashboardStats(orgId),
       getCategoryBreakdown(orgId),
       getMonthlyBreakdown(orgId),
       getProjectBreakdown(orgId),
       getTopParties(orgId),
+      getOverdueAlerts(orgId),
     ])
-    setStats(s); setCategories(c); setMonthly(m); setProjects(p); setTopParties(tp)
+    setStats(s); setCategories(c); setMonthly(m); setProjects(p); setTopParties(tp); setAlerts(al)
     setLoading(false)
   }, [orgId])
   useEffect(() => { void load() }, [load])
@@ -70,6 +72,32 @@ export default function HomePage() {
           </Button>
         </Link>
       </div>
+
+      {/* Overdue Alerts */}
+      {(alerts.overduePayments.length > 0 || alerts.overdueTasks.length > 0) && (
+        <Card className="border-amber-200 bg-amber-50/50 dark:border-amber-900 dark:bg-amber-950/20">
+          <CardContent className="p-4">
+            <div className="flex items-center gap-2 mb-3">
+              <AlertTriangle className="h-4 w-4 text-amber-600" />
+              <span className="font-semibold text-amber-700 dark:text-amber-400">Action Required</span>
+            </div>
+            <div className="grid gap-2 sm:grid-cols-2">
+              {alerts.overduePayments.length > 0 && (
+                <Link href="/financials" className="flex items-center gap-2 rounded-lg border border-amber-200 bg-white/70 p-3 text-sm transition-colors hover:bg-white dark:border-amber-800 dark:bg-amber-950/30">
+                  <Banknote className="h-4 w-4 text-amber-600" />
+                  <span><strong>{alerts.overduePayments.length}</strong> overdue payment{alerts.overduePayments.length > 1 ? "s" : ""}</span>
+                </Link>
+              )}
+              {alerts.overdueTasks.length > 0 && (
+                <Link href="/tasks" className="flex items-center gap-2 rounded-lg border border-amber-200 bg-white/70 p-3 text-sm transition-colors hover:bg-white dark:border-amber-800 dark:bg-amber-950/30">
+                  <ListTodo className="h-4 w-4 text-amber-600" />
+                  <span><strong>{alerts.overdueTasks.length}</strong> overdue task{alerts.overdueTasks.length > 1 ? "s" : ""}</span>
+                </Link>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Top KPI Cards */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
