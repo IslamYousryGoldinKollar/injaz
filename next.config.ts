@@ -24,6 +24,19 @@ const nextConfig: NextConfig = {
   env: {
     ...firebaseEnv,
   },
+  async headers() {
+    return [
+      {
+        source: "/(.*)",
+        headers: [
+          {
+            key: "Cross-Origin-Opener-Policy",
+            value: "same-origin-allow-popups",
+          },
+        ],
+      },
+    ];
+  },
   experimental: {
     serverActions: {
       allowedOrigins: [

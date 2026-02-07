@@ -1,0 +1,10 @@
+runConfig:
+  runtime: nodejs22
+
+env:
+  - variable: DATABASE_URL
+    secret: DATABASE_URL
+  - variable: GOOGLE_GENAI_API_KEY
+    secret: GOOGLE_GENAI_API_KEY
+  - variable: TELEGRAM_BOT_TOKEN
+    secret: TELEGRAM_BOT_TOKEN
