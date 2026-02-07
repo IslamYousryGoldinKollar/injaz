@@ -194,3 +194,64 @@ export async function getOwnerLoans(ownerId?: string) {
     orderBy: { loanDate: "desc" },
   })
 }
+
+// Payment-to-Document Allocation
+export async function getAllocationsForPayment(paymentId: string) {
+  return prisma.paymentAllocation.findMany({
+    where: { paymentId },
+    include: { document: { select: { id: true, number: true, type: true, netAmount: true, remainingAmount: true } } },
+  })
+}
+
+export async function createAllocation(data: {
+  paymentId: string
+  documentId: string
+  amount: number
+}) {
+  const allocation = await prisma.paymentAllocation.create({ data })
+  // Update document paidAmount and remainingAmount
+  const allocs = await prisma.paymentAllocation.findMany({ where: { documentId: data.documentId } })
+  const totalPaid = allocs.reduce((s, a) => s + Number(a.amount), 0)
+  const doc = await prisma.document.findUnique({ where: { id: data.documentId } })
+  if (doc) {
+    await prisma.document.update({
+      where: { id: data.documentId },
+      data: {
+        paidAmount: totalPaid,
+        remainingAmount: Number(doc.netAmount) - totalPaid,
+      },
+    })
+  }
+  return allocation
+}
+
+export async function deleteAllocation(id: string) {
+  const allocation = await prisma.paymentAllocation.findUnique({ where: { id } })
+  if (!allocation) return
+  await prisma.paymentAllocation.delete({ where: { id } })
+  // Recalculate document amounts
+  const allocs = await prisma.paymentAllocation.findMany({ where: { documentId: allocation.documentId } })
+  const totalPaid = allocs.reduce((s, a) => s + Number(a.amount), 0)
+  const doc = await prisma.document.findUnique({ where: { id: allocation.documentId } })
+  if (doc) {
+    await prisma.document.update({
+      where: { id: allocation.documentId },
+      data: {
+        paidAmount: totalPaid,
+        remainingAmount: Number(doc.netAmount) - totalPaid,
+      },
+    })
+  }
+}
+
+export async function getUnpaidDocumentsForParty(partyId: string) {
+  return prisma.document.findMany({
+    where: {
+      partyId,
+      remainingAmount: { gt: 0 },
+      status: { notIn: ["CANCELLED", "DRAFT"] },
+    },
+    select: { id: true, number: true, type: true, netAmount: true, remainingAmount: true },
+    orderBy: { issueDate: "desc" },
+  })
+}
