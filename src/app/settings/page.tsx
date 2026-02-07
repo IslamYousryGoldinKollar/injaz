@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect, useCallback } from "react"
+import { useTheme } from "next-themes"
 import { useUser } from "@/contexts/user-context"
 import { Card, CardHeader, CardTitle, CardContent, CardDescription } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -21,7 +22,7 @@ export default function SettingsPage() {
   const [saved, setSaved] = useState(false)
   const [profileForm, setProfileForm] = useState({ name: "", phone: "" })
   const [profileSaved, setProfileSaved] = useState(false)
-  const [theme, setTheme] = useState("system")
+  const { theme, setTheme: setNextTheme } = useTheme()
 
   const load = useCallback(async () => {
     if (!orgId) return
@@ -44,26 +45,8 @@ export default function SettingsPage() {
     }
   }, [currentUser])
 
-  const applyTheme = useCallback((t: string) => {
-    const root = document.documentElement
-    if (t === "dark") { root.classList.add("dark") }
-    else if (t === "light") { root.classList.remove("dark") }
-    else {
-      if (window.matchMedia("(prefers-color-scheme: dark)").matches) root.classList.add("dark")
-      else root.classList.remove("dark")
-    }
-  }, [])
-
-  useEffect(() => {
-    const stored = localStorage.getItem("theme") || "system"
-    setTheme(stored)
-    applyTheme(stored)
-  }, [applyTheme])
-
   const changeTheme = (t: string) => {
-    setTheme(t)
-    localStorage.setItem("theme", t)
-    applyTheme(t)
+    setNextTheme(t)
   }
 
   const saveProfile = async () => {

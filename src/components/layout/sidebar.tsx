@@ -8,7 +8,6 @@ import { useAuth } from "@/contexts/auth-context"
 import { Button } from "@/components/ui/button"
 import {
   LayoutDashboard,
-  Receipt,
   FolderKanban,
   ListTodo,
   CalendarCheck2,
@@ -20,18 +19,39 @@ import {
   ChevronRight,
   Sparkles,
   Upload,
+  FileText,
+  Wallet,
+  RefreshCw,
+  Landmark,
+  Percent,
+  FileStack,
+  BarChart3,
 } from "lucide-react"
 import { useState } from "react"
+import type { LucideIcon } from "lucide-react"
 
-const navItems = [
+interface NavItem {
+  label: string
+  href: string
+  icon: LucideIcon
+  section?: string
+}
+
+const navItems: NavItem[] = [
   { label: "Dashboard", href: "/", icon: LayoutDashboard },
   { label: "AI Assistant", href: "/ai", icon: Sparkles },
-  { label: "Parties", href: "/parties", icon: Users },
+  { label: "Parties", href: "/parties", icon: Users, section: "Business" },
   { label: "Projects", href: "/projects", icon: FolderKanban },
   { label: "Tasks", href: "/tasks", icon: ListTodo },
   { label: "Day Planner", href: "/day", icon: CalendarCheck2 },
-  { label: "Financials", href: "/financials", icon: Banknote },
-  { label: "Documents", href: "/financials/invoices", icon: Receipt },
+  { label: "Payments", href: "/financials", icon: Banknote, section: "Finance" },
+  { label: "Documents", href: "/financials/invoices", icon: FileText },
+  { label: "Salaries", href: "/financials/salaries", icon: Wallet },
+  { label: "Recurring", href: "/financials/recurring", icon: RefreshCw },
+  { label: "Loans", href: "/financials/loans", icon: Landmark },
+  { label: "VAT", href: "/financials/vat", icon: Percent },
+  { label: "Drafts", href: "/financials/drafts", icon: FileStack },
+  { label: "Reports", href: "/reports", icon: BarChart3, section: "System" },
   { label: "Import", href: "/import", icon: Upload },
   { label: "Settings", href: "/settings", icon: Settings },
 ]
@@ -68,19 +88,22 @@ export function Sidebar({ onNavigate }: { onNavigate?: () => void } = {}) {
 
       {/* Nav */}
       <nav className="flex-1 overflow-y-auto p-2">
-        <ul className="space-y-1">
+        <ul className="space-y-0.5">
           {navItems.map((item) => {
             const isActive =
               item.href === "/"
                 ? pathname === "/"
-                : pathname.startsWith(item.href)
+                : pathname === item.href
             return (
               <li key={item.href}>
+                {item.section && !collapsed && (
+                  <p className="mt-4 mb-1 px-3 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/60">{item.section}</p>
+                )}
                 <Link
                   href={item.href}
                   onClick={onNavigate}
                   className={cn(
-                    "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
+                    "flex items-center gap-3 rounded-lg px-3 py-1.5 text-sm font-medium transition-colors",
                     isActive
                       ? "bg-primary/10 text-primary"
                       : "text-muted-foreground hover:bg-accent hover:text-foreground"
