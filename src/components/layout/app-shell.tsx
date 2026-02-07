@@ -5,6 +5,7 @@ import { useAuth } from "@/contexts/auth-context"
 import { useUser } from "@/contexts/user-context"
 import { Sidebar } from "./sidebar"
 import { NotificationBell } from "./notification-bell"
+import { GlobalSearch } from "./global-search"
 import { Loader2, Menu, X } from "lucide-react"
 import { Button } from "@/components/ui/button"
 
@@ -54,7 +55,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           <NotificationBell />
         </div>
         {/* Desktop top bar */}
-        <div className="hidden h-12 items-center justify-end border-b px-6 md:flex">
+        <div className="hidden h-12 items-center justify-end gap-2 border-b px-6 md:flex">
+          <GlobalSearch />
           <NotificationBell />
         </div>
         <main className="flex-1 overflow-y-auto p-4 md:p-6">{children}</main>
