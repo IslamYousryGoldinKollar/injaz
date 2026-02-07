@@ -1,13 +1,16 @@
 "use client"
 
+import { useState } from "react"
 import { useAuth } from "@/contexts/auth-context"
 import { useUser } from "@/contexts/user-context"
 import { Sidebar } from "./sidebar"
-import { Loader2 } from "lucide-react"
+import { Loader2, Menu, X } from "lucide-react"
+import { Button } from "@/components/ui/button"
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   const { authUser, loading: authLoading } = useAuth()
   const { loading: userLoading } = useUser()
+  const [mobileOpen, setMobileOpen] = useState(false)
 
   if (authLoading || (authUser && userLoading)) {
     return (
@@ -23,8 +26,31 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="flex h-screen overflow-hidden bg-background">
-      <Sidebar />
-      <main className="flex-1 overflow-y-auto p-6">{children}</main>
+      {/* Desktop sidebar */}
+      <div className="hidden md:block">
+        <Sidebar />
+      </div>
+
+      {/* Mobile overlay */}
+      {mobileOpen && (
+        <div className="fixed inset-0 z-50 md:hidden">
+          <div className="absolute inset-0 bg-black/40" onClick={() => setMobileOpen(false)} />
+          <div className="absolute left-0 top-0 h-full">
+            <Sidebar onNavigate={() => setMobileOpen(false)} />
+          </div>
+        </div>
+      )}
+
+      <div className="flex flex-1 flex-col overflow-hidden">
+        {/* Mobile header */}
+        <div className="flex h-14 items-center gap-3 border-b px-4 md:hidden">
+          <Button variant="ghost" size="icon" onClick={() => setMobileOpen(true)}>
+            {mobileOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+          </Button>
+          <span className="text-lg font-bold text-primary">Injaz</span>
+        </div>
+        <main className="flex-1 overflow-y-auto p-4 md:p-6">{children}</main>
+      </div>
     </div>
   )
 }
