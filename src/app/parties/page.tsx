@@ -7,8 +7,9 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
 import { SlideOver } from "@/components/ui/slide-over"
-import { getParties, createParty, getPartyById, updateParty, deleteParty, getPartyStats } from "@/lib/actions/party-actions"
-import { Plus, Building2, Users, Briefcase, Search, Phone, Mail, Trash2, Pencil, Save } from "lucide-react"
+import { getParties, createParty, getPartyById, updateParty, deleteParty, getPartyStats, getPartyBalance } from "@/lib/actions/party-actions"
+import { formatCurrency, cn } from "@/lib/utils"
+import { Plus, Building2, Users, Briefcase, Search, Phone, Mail, Trash2, Pencil, Save, ArrowDownLeft, ArrowUpRight, Receipt, Percent } from "lucide-react"
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 const partyTypes = [
@@ -26,9 +27,10 @@ export default function PartiesPage() {
   const [search, setSearch] = useState("")
   const [showCreate, setShowCreate] = useState(false)
   const [selected, setSelected] = useState<any>(null)
-  const [form, setForm] = useState({ type: "VENDOR", name: "", email: "", phone: "", contactName: "", address: "", notes: "" })
+  const [form, setForm] = useState({ type: "VENDOR", name: "", email: "", phone: "", contactName: "", address: "", notes: "", hasVat: true, vatRate: "14", hasIncomeTaxDeduction: false, incomeTaxRate: "3" })
   const [editing, setEditing] = useState(false)
-  const [editForm, setEditForm] = useState({ name: "", email: "", phone: "", contactName: "", address: "", notes: "" })
+  const [editForm, setEditForm] = useState({ name: "", email: "", phone: "", contactName: "", address: "", notes: "", hasVat: true, vatRate: "14", hasIncomeTaxDeduction: false, incomeTaxRate: "3" })
+  const [balance, setBalance] = useState<any>(null)
 
   const orgId = currentUser?.organizationId
   const load = useCallback(async () => {
@@ -43,18 +45,31 @@ export default function PartiesPage() {
 
   const handleCreate = async () => {
     if (!orgId || !form.name) return
-    await createParty({ organizationId: orgId, type: form.type as any, name: form.name, email: form.email || undefined, phone: form.phone || undefined, contactName: form.contactName || undefined, address: form.address || undefined, notes: form.notes || undefined })
+    await createParty({
+      organizationId: orgId, type: form.type as any, name: form.name,
+      email: form.email || undefined, phone: form.phone || undefined,
+      contactName: form.contactName || undefined, address: form.address || undefined,
+      notes: form.notes || undefined,
+      hasVat: form.hasVat, vatRate: parseFloat(form.vatRate) / 100 || 0.14,
+      hasIncomeTaxDeduction: form.hasIncomeTaxDeduction, incomeTaxRate: parseFloat(form.incomeTaxRate) / 100 || 0.03,
+    })
     setShowCreate(false)
-    setForm({ type: "VENDOR", name: "", email: "", phone: "", contactName: "", address: "", notes: "" })
+    setForm({ type: "VENDOR", name: "", email: "", phone: "", contactName: "", address: "", notes: "", hasVat: true, vatRate: "14", hasIncomeTaxDeduction: false, incomeTaxRate: "3" })
     load()
   }
 
   const handleSelect = async (id: string) => {
-    const p = await getPartyById(id)
+    const [p, bal] = await Promise.all([getPartyById(id), getPartyBalance(id)])
     setSelected(p)
+    setBalance(bal)
     setEditing(false)
     if (p) {
-      setEditForm({ name: p.name, email: p.email || "", phone: p.phone || "", contactName: p.contactName || "", address: p.address || "", notes: p.notes || "" })
+      setEditForm({
+        name: p.name, email: p.email || "", phone: p.phone || "",
+        contactName: p.contactName || "", address: p.address || "", notes: p.notes || "",
+        hasVat: p.hasVat, vatRate: String(Number(p.vatRate) * 100),
+        hasIncomeTaxDeduction: p.hasIncomeTaxDeduction, incomeTaxRate: String(Number(p.incomeTaxRate) * 100),
+      })
     }
   }
 
@@ -67,6 +82,10 @@ export default function PartiesPage() {
       contactName: editForm.contactName || undefined,
       address: editForm.address || undefined,
       notes: editForm.notes || undefined,
+      hasVat: editForm.hasVat,
+      vatRate: parseFloat(editForm.vatRate) / 100 || 0.14,
+      hasIncomeTaxDeduction: editForm.hasIncomeTaxDeduction,
+      incomeTaxRate: parseFloat(editForm.incomeTaxRate) / 100 || 0.03,
     })
     const updated = await getPartyById(selected.id)
     setSelected(updated)
@@ -166,6 +185,32 @@ export default function PartiesPage() {
           <Input placeholder="Contact Person" value={form.contactName} onChange={(e) => setForm({ ...form, contactName: e.target.value })} />
           <Input placeholder="Address" value={form.address} onChange={(e) => setForm({ ...form, address: e.target.value })} />
           <textarea className="w-full rounded-lg border bg-transparent px-3 py-2 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring" placeholder="Notes" rows={3} value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} />
+
+          {/* VAT & Tax Settings */}
+          <div className="rounded-lg border p-3 space-y-3">
+            <p className="text-xs font-semibold uppercase text-muted-foreground">Tax Settings</p>
+            <div className="flex items-center gap-3">
+              <button type="button" onClick={() => setForm({ ...form, hasVat: !form.hasVat })}
+                className={cn("flex items-center gap-2 rounded-lg border-2 px-3 py-2 text-sm transition-all flex-1",
+                  form.hasVat ? "border-blue-500 bg-blue-50 dark:bg-blue-950/30" : "border-transparent bg-secondary"
+                )}>
+                <Receipt className={cn("h-4 w-4", form.hasVat ? "text-blue-600" : "text-muted-foreground")} />
+                VAT {form.hasVat ? "ON" : "OFF"}
+              </button>
+              {form.hasVat && <Input className="w-20" type="number" value={form.vatRate} onChange={(e) => setForm({ ...form, vatRate: e.target.value })} suffix="%" />}
+            </div>
+            <div className="flex items-center gap-3">
+              <button type="button" onClick={() => setForm({ ...form, hasIncomeTaxDeduction: !form.hasIncomeTaxDeduction })}
+                className={cn("flex items-center gap-2 rounded-lg border-2 px-3 py-2 text-sm transition-all flex-1",
+                  form.hasIncomeTaxDeduction ? "border-amber-500 bg-amber-50 dark:bg-amber-950/30" : "border-transparent bg-secondary"
+                )}>
+                <Percent className={cn("h-4 w-4", form.hasIncomeTaxDeduction ? "text-amber-600" : "text-muted-foreground")} />
+                Tax Deduction {form.hasIncomeTaxDeduction ? "ON" : "OFF"}
+              </button>
+              {form.hasIncomeTaxDeduction && <Input className="w-20" type="number" value={form.incomeTaxRate} onChange={(e) => setForm({ ...form, incomeTaxRate: e.target.value })} suffix="%" />}
+            </div>
+          </div>
+
           <Button className="w-full" onClick={handleCreate} disabled={!form.name}>Create Party</Button>
         </div>
       </SlideOver>
@@ -196,32 +241,98 @@ export default function PartiesPage() {
                 <Input placeholder="Contact Person" value={editForm.contactName} onChange={(e) => setEditForm({ ...editForm, contactName: e.target.value })} />
                 <Input placeholder="Address" value={editForm.address} onChange={(e) => setEditForm({ ...editForm, address: e.target.value })} />
                 <textarea className="w-full rounded-lg border bg-transparent px-3 py-2 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring" placeholder="Notes" rows={3} value={editForm.notes} onChange={(e) => setEditForm({ ...editForm, notes: e.target.value })} />
+                <div className="rounded-lg border p-3 space-y-3">
+                  <p className="text-xs font-semibold uppercase text-muted-foreground">Tax Settings</p>
+                  <div className="flex items-center gap-3">
+                    <button type="button" onClick={() => setEditForm({ ...editForm, hasVat: !editForm.hasVat })}
+                      className={cn("flex items-center gap-2 rounded-lg border-2 px-3 py-2 text-sm transition-all flex-1",
+                        editForm.hasVat ? "border-blue-500 bg-blue-50 dark:bg-blue-950/30" : "border-transparent bg-secondary"
+                      )}>
+                      <Receipt className={cn("h-4 w-4", editForm.hasVat ? "text-blue-600" : "text-muted-foreground")} />
+                      VAT {editForm.hasVat ? "ON" : "OFF"}
+                    </button>
+                    {editForm.hasVat && <Input className="w-20" type="number" value={editForm.vatRate} onChange={(e) => setEditForm({ ...editForm, vatRate: e.target.value })} />}
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <button type="button" onClick={() => setEditForm({ ...editForm, hasIncomeTaxDeduction: !editForm.hasIncomeTaxDeduction })}
+                      className={cn("flex items-center gap-2 rounded-lg border-2 px-3 py-2 text-sm transition-all flex-1",
+                        editForm.hasIncomeTaxDeduction ? "border-amber-500 bg-amber-50 dark:bg-amber-950/30" : "border-transparent bg-secondary"
+                      )}>
+                      <Percent className={cn("h-4 w-4", editForm.hasIncomeTaxDeduction ? "text-amber-600" : "text-muted-foreground")} />
+                      Tax Deduction {editForm.hasIncomeTaxDeduction ? "ON" : "OFF"}
+                    </button>
+                    {editForm.hasIncomeTaxDeduction && <Input className="w-20" type="number" value={editForm.incomeTaxRate} onChange={(e) => setEditForm({ ...editForm, incomeTaxRate: e.target.value })} />}
+                  </div>
+                </div>
                 <Button className="w-full" onClick={handleSave}><Save className="h-4 w-4" /> Save Changes</Button>
               </div>
             ) : (
               <>
+                {/* Financial Balance Summary */}
+                {balance && (balance.completedCount > 0 || balance.plannedCount > 0) && (
+                  <div className="rounded-xl border bg-secondary/30 p-4 space-y-3">
+                    <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Financial Balance</p>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <p className="text-xs text-muted-foreground">Total Received</p>
+                        <p className="text-lg font-bold text-emerald-600">{formatCurrency(balance.bankIn)}</p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-muted-foreground">Total Paid</p>
+                        <p className="text-lg font-bold text-rose-600">{formatCurrency(balance.bankOut)}</p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-muted-foreground">Net Balance</p>
+                        <p className={cn("text-lg font-bold", balance.netBalance >= 0 ? "text-emerald-600" : "text-rose-600")}>{formatCurrency(balance.netBalance)}</p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-muted-foreground">Planned Pending</p>
+                        <p className="text-lg font-bold text-violet-600">{formatCurrency(balance.plannedIn + balance.plannedOut)}</p>
+                      </div>
+                    </div>
+                    {(balance.vatCollected > 0 || balance.vatPaid > 0) && (
+                      <div className="border-t pt-2 grid grid-cols-2 gap-3">
+                        <div><p className="text-xs text-muted-foreground">VAT Collected</p><p className="text-sm font-medium text-blue-600">{formatCurrency(balance.vatCollected)}</p></div>
+                        <div><p className="text-xs text-muted-foreground">VAT Paid</p><p className="text-sm font-medium text-indigo-600">{formatCurrency(balance.vatPaid)}</p></div>
+                      </div>
+                    )}
+                  </div>
+                )}
+
                 <div className="grid gap-3 sm:grid-cols-2">
-                  {selected.email && <div><p className="text-xs text-muted-foreground">Email</p><p className="text-sm">{selected.email}</p></div>}
-                  {selected.phone && <div><p className="text-xs text-muted-foreground">Phone</p><p className="text-sm">{selected.phone}</p></div>}
-                  {selected.contactName && <div><p className="text-xs text-muted-foreground">Contact</p><p className="text-sm">{selected.contactName}</p></div>}
-                  {selected.address && <div><p className="text-xs text-muted-foreground">Address</p><p className="text-sm">{selected.address}</p></div>}
-                  <div><p className="text-xs text-muted-foreground">VAT</p><p className="text-sm">{selected.hasVat ? `${Number(selected.vatRate) * 100}%` : "No VAT"}</p></div>
-                  <div><p className="text-xs text-muted-foreground">Payment Terms</p><p className="text-sm">{selected.defaultPaymentTermsDays} days</p></div>
+                  {selected.email && <div className="rounded-lg bg-secondary/30 p-3"><p className="text-xs text-muted-foreground">Email</p><p className="text-sm">{selected.email}</p></div>}
+                  {selected.phone && <div className="rounded-lg bg-secondary/30 p-3"><p className="text-xs text-muted-foreground">Phone</p><p className="text-sm">{selected.phone}</p></div>}
+                  {selected.contactName && <div className="rounded-lg bg-secondary/30 p-3"><p className="text-xs text-muted-foreground">Contact</p><p className="text-sm">{selected.contactName}</p></div>}
+                  {selected.address && <div className="rounded-lg bg-secondary/30 p-3"><p className="text-xs text-muted-foreground">Address</p><p className="text-sm">{selected.address}</p></div>}
+                  <div className="rounded-lg bg-secondary/30 p-3"><p className="text-xs text-muted-foreground">VAT</p><p className="text-sm">{selected.hasVat ? `${Number(selected.vatRate) * 100}%` : "No VAT"}</p></div>
+                  <div className="rounded-lg bg-secondary/30 p-3"><p className="text-xs text-muted-foreground">Income Tax Deduction</p><p className="text-sm">{selected.hasIncomeTaxDeduction ? `${Number(selected.incomeTaxRate) * 100}%` : "None"}</p></div>
+                  <div className="rounded-lg bg-secondary/30 p-3"><p className="text-xs text-muted-foreground">Payment Terms</p><p className="text-sm">{selected.defaultPaymentTermsDays} days</p></div>
                 </div>
-                {selected.notes && <div><p className="text-xs text-muted-foreground">Notes</p><p className="text-sm">{selected.notes}</p></div>}
+                {selected.notes && <div className="rounded-lg bg-secondary/30 p-3"><p className="text-xs text-muted-foreground">Notes</p><p className="text-sm">{selected.notes}</p></div>}
               </>
             )}
 
             {selected.payments?.length > 0 && (
               <div>
-                <h3 className="mb-2 font-semibold">Recent Payments ({selected.payments.length})</h3>
+                <h3 className="mb-2 font-semibold">Payments ({selected.payments.length})</h3>
                 <div className="divide-y rounded-lg border">
-                  {selected.payments.map((p: any) => (
-                    <div key={p.id} className="flex items-center justify-between px-3 py-2 text-sm">
-                      <span>{p.description || p.number}</span>
-                      <span className="font-medium">{Number(p.expectedAmount).toLocaleString()} EGP</span>
-                    </div>
-                  ))}
+                  {selected.payments.map((p: any) => {
+                    const gross = Number(p.grossAmount || p.expectedAmount || 0)
+                    return (
+                      <div key={p.id} className="flex items-center justify-between px-3 py-2.5 text-sm">
+                        <div className="flex items-center gap-2">
+                          {p.direction === "INBOUND" ? <ArrowDownLeft className="h-3.5 w-3.5 text-emerald-600" /> : <ArrowUpRight className="h-3.5 w-3.5 text-rose-600" />}
+                          <div>
+                            <p className="font-medium">{p.description || p.number}</p>
+                            <p className="text-xs text-muted-foreground">{new Date(p.plannedDate).toLocaleDateString()} · {p.status}</p>
+                          </div>
+                        </div>
+                        <span className={cn("font-semibold", p.direction === "INBOUND" ? "text-emerald-600" : "text-rose-600")}>
+                          {p.direction === "INBOUND" ? "+" : "-"}{formatCurrency(gross)}
+                        </span>
+                      </div>
+                    )
+                  })}
                 </div>
               </div>
             )}

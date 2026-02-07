@@ -31,11 +31,61 @@ export async function getPartyById(id: string) {
   return prisma.party.findUnique({
     where: { id },
     include: {
-      documents: { orderBy: { createdAt: "desc" }, take: 10 },
-      payments: { orderBy: { createdAt: "desc" }, take: 10 },
+      documents: { orderBy: { createdAt: "desc" }, take: 20 },
+      payments: { orderBy: { plannedDate: "desc" }, take: 50 },
       projects: { orderBy: { createdAt: "desc" } },
     },
   })
+}
+
+export async function getPartyBalance(partyId: string) {
+  try {
+    const payments = await prisma.payment.findMany({
+      where: { partyId, isDraft: false },
+      select: {
+        direction: true, status: true,
+        grossAmount: true, subtotal: true, vatAmount: true,
+        incomeTaxAmount: true, netBankAmount: true,
+        expectedAmount: true, actualAmount: true,
+      },
+    })
+    const completed = payments.filter(p => p.status === "COMPLETED")
+    const planned = payments.filter(p => p.status === "PLANNED" || p.status === "PENDING")
+
+    const sum = (arr: typeof payments, field: keyof typeof payments[0]) =>
+      arr.reduce((s, p) => s + Number(p[field] || 0), 0)
+
+    const inCompleted = completed.filter(p => p.direction === "INBOUND")
+    const outCompleted = completed.filter(p => p.direction === "OUTBOUND")
+
+    const totalInvoiced = sum(inCompleted, "grossAmount") || sum(inCompleted, "expectedAmount")
+    const totalPaid = sum(outCompleted, "grossAmount") || sum(outCompleted, "expectedAmount")
+    const vatCollected = sum(inCompleted, "vatAmount")
+    const vatPaid = sum(outCompleted, "vatAmount")
+    const taxDeducted = sum(inCompleted, "incomeTaxAmount") + sum(outCompleted, "incomeTaxAmount")
+    const bankIn = sum(inCompleted, "netBankAmount") || totalInvoiced
+    const bankOut = sum(outCompleted, "netBankAmount") || totalPaid
+    const plannedIn = sum(planned.filter(p => p.direction === "INBOUND"), "grossAmount") || sum(planned.filter(p => p.direction === "INBOUND"), "expectedAmount")
+    const plannedOut = sum(planned.filter(p => p.direction === "OUTBOUND"), "grossAmount") || sum(planned.filter(p => p.direction === "OUTBOUND"), "expectedAmount")
+
+    return {
+      totalInvoiced, totalPaid,
+      vatCollected, vatPaid, taxDeducted,
+      bankIn, bankOut, netBalance: bankIn - bankOut,
+      plannedIn, plannedOut,
+      completedCount: completed.length,
+      plannedCount: planned.length,
+    }
+  } catch (error) {
+    console.error("[getPartyBalance] DB error:", error)
+    return {
+      totalInvoiced: 0, totalPaid: 0,
+      vatCollected: 0, vatPaid: 0, taxDeducted: 0,
+      bankIn: 0, bankOut: 0, netBalance: 0,
+      plannedIn: 0, plannedOut: 0,
+      completedCount: 0, plannedCount: 0,
+    }
+  }
 }
 
 export async function createParty(data: {

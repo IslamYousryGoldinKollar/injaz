@@ -3,6 +3,8 @@
 import prisma from "@/lib/prisma"
 import type { Direction, PaymentStatus, PaymentMethod, Currency } from "@prisma/client"
 
+/* eslint-disable @typescript-eslint/no-explicit-any */
+
 export async function getPayments(orgId: string, filters?: {
   direction?: Direction
   status?: PaymentStatus
@@ -75,8 +77,20 @@ export async function createPayment(data: {
   status?: PaymentStatus
   notes?: string
   createdById: string
+  subtotal?: number
+  vatAmount?: number
+  vatRate?: number
+  incomeTaxAmount?: number
+  incomeTaxRate?: number
+  grossAmount?: number
+  netBankAmount?: number
 }) {
-  return prisma.payment.create({ data: data as never })
+  try {
+    return await prisma.payment.create({ data: data as never })
+  } catch (error) {
+    console.error("[createPayment] DB error:", error)
+    throw error
+  }
 }
 
 export async function updatePayment(id: string, data: {
@@ -204,28 +218,76 @@ export async function confirmDraftPayment(id: string, data: {
 
 export async function getFinancialSummary(orgId: string) {
   try {
-    const [inbound, outbound] = await Promise.all([
-      prisma.payment.aggregate({
-        where: { organizationId: orgId, direction: "INBOUND", status: "COMPLETED" },
-        _sum: { actualAmount: true },
-      }),
-      prisma.payment.aggregate({
-        where: { organizationId: orgId, direction: "OUTBOUND", status: "COMPLETED" },
-        _sum: { actualAmount: true },
-      }),
-    ])
+    const payments = await prisma.payment.findMany({
+      where: { organizationId: orgId, isDraft: false },
+      select: {
+        direction: true, status: true,
+        grossAmount: true, subtotal: true, vatAmount: true,
+        incomeTaxAmount: true, netBankAmount: true,
+        expectedAmount: true, actualAmount: true,
+      },
+    })
 
-    const revenue = Number(inbound._sum.actualAmount || 0)
-    const expenses = Number(outbound._sum.actualAmount || 0)
+    const completed = payments.filter(p => p.status === "COMPLETED")
+    const planned = payments.filter(p => p.status === "PLANNED" || p.status === "PENDING")
+
+    const inCompleted = completed.filter(p => p.direction === "INBOUND")
+    const outCompleted = completed.filter(p => p.direction === "OUTBOUND")
+    const inPlanned = planned.filter(p => p.direction === "INBOUND")
+    const outPlanned = planned.filter(p => p.direction === "OUTBOUND")
+
+    const sum = (arr: typeof payments, field: keyof typeof payments[0]) =>
+      arr.reduce((s, p) => s + Number(p[field] || 0), 0)
+
+    // Gross amounts (100% + 14% VAT = registered invoice total)
+    const grossRevenue = sum(inCompleted, "grossAmount") || sum(inCompleted, "expectedAmount")
+    const grossExpenses = sum(outCompleted, "grossAmount") || sum(outCompleted, "expectedAmount")
+
+    // VAT tracking
+    const vatCollected = sum(inCompleted, "vatAmount")   // VAT we collected from clients (we owe gov)
+    const vatPaid = sum(outCompleted, "vatAmount")       // VAT we paid to vendors (deductible)
+    const netVatPayable = vatCollected - vatPaid           // Net VAT we owe to government
+
+    // Income tax deduction tracking
+    const taxDeductedByClients = sum(inCompleted, "incomeTaxAmount") // 3% clients withheld (our credit with gov)
+    const taxWeDeducted = sum(outCompleted, "incomeTaxAmount")       // 3% we withheld from vendors (we owe gov)
+
+    // Bank balance (actual money in/out after deductions)
+    const bankIn = sum(inCompleted, "netBankAmount") || sum(inCompleted, "actualAmount") || grossRevenue
+    const bankOut = sum(outCompleted, "netBankAmount") || sum(outCompleted, "actualAmount") || grossExpenses
+    const bankBalance = bankIn - bankOut
+
+    // Planned (future)
+    const plannedIn = sum(inPlanned, "grossAmount") || sum(inPlanned, "expectedAmount")
+    const plannedOut = sum(outPlanned, "grossAmount") || sum(outPlanned, "expectedAmount")
 
     return {
-      revenue,
-      expenses,
-      netProfit: revenue - expenses,
+      grossRevenue,
+      grossExpenses,
+      netProfit: grossRevenue - grossExpenses,
+      vatCollected,
+      vatPaid,
+      netVatPayable,
+      taxDeductedByClients,
+      taxWeDeducted,
+      bankBalance,
+      bankIn,
+      bankOut,
+      plannedIn,
+      plannedOut,
+      plannedBalance: bankBalance + plannedIn - plannedOut,
+      totalPayments: payments.length,
     }
   } catch (error) {
     console.error("[getFinancialSummary] DB error:", error)
-    return { revenue: 0, expenses: 0, netProfit: 0 }
+    return {
+      grossRevenue: 0, grossExpenses: 0, netProfit: 0,
+      vatCollected: 0, vatPaid: 0, netVatPayable: 0,
+      taxDeductedByClients: 0, taxWeDeducted: 0,
+      bankBalance: 0, bankIn: 0, bankOut: 0,
+      plannedIn: 0, plannedOut: 0, plannedBalance: 0,
+      totalPayments: 0,
+    }
   }
 }
 

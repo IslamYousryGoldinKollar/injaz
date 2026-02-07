@@ -399,6 +399,15 @@ model Payment {
   reference      String?
   description    String?
 
+  // Structured financial breakdown
+  subtotal        Decimal  @default(0)
+  vatAmount       Decimal  @default(0)
+  vatRate         Decimal  @default(0)
+  incomeTaxAmount Decimal  @default(0)
+  incomeTaxRate   Decimal  @default(0)
+  grossAmount     Decimal  @default(0)
+  netBankAmount   Decimal  @default(0)
+
   allocations PaymentAllocation[]
 
   salaryId       String?
