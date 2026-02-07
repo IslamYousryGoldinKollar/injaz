@@ -26,6 +26,7 @@ import {
   Percent,
   FileStack,
   BarChart3,
+  FileEdit,
 } from "lucide-react"
 import { useState } from "react"
 import type { LucideIcon } from "lucide-react"
@@ -51,6 +52,7 @@ const navItems: NavItem[] = [
   { label: "Loans", href: "/financials/loans", icon: Landmark },
   { label: "VAT", href: "/financials/vat", icon: Percent },
   { label: "Drafts", href: "/financials/drafts", icon: FileStack },
+  { label: "Draft Payments", href: "/financials/draft-payments", icon: FileEdit },
   { label: "Reports", href: "/reports", icon: BarChart3, section: "System" },
   { label: "Import", href: "/import", icon: Upload },
   { label: "Settings", href: "/settings", icon: Settings },

@@ -155,16 +155,35 @@ async function executeTool(name: string, args: Record<string, any>, orgId: strin
         partyCount, projectCount, taskCount,
       }
     }
-    case "createDraft": {
-      const draft = await prisma.financialDraft.create({
+    case "createDraftPayment": {
+      let party = null
+      if (args.partyName) {
+        party = await prisma.party.findFirst({
+          where: { organizationId: orgId, name: { contains: args.partyName, mode: "insensitive" } },
+        })
+        if (!party) {
+          party = await prisma.party.create({
+            data: { organizationId: orgId, name: args.partyName, type: args.direction === "INBOUND" ? "CLIENT" : "VENDOR" } as any,
+          })
+        }
+      }
+      const draftCount = await prisma.payment.count({ where: { organizationId: orgId, isDraft: true } })
+      const draftNumber = `DRF-${String(draftCount + 1).padStart(4, "0")}`
+      const draft = await prisma.payment.create({
         data: {
-          type: "PAYMENT" as any, source: "MANUAL" as any, createdById: userId,
-          partyName: args.partyName, amount: args.amount,
-          direction: args.direction as any, description: args.description,
-          category: args.category,
-        },
+          organizationId: orgId,
+          number: draftNumber,
+          direction: args.direction,
+          partyId: party?.id || null,
+          plannedDate: args.date ? new Date(args.date) : new Date(),
+          expectedAmount: args.amount,
+          description: args.description || "",
+          voiceTranscript: args.voiceTranscript || null,
+          isDraft: true,
+          createdById: userId,
+        } as any,
       })
-      return { success: true, message: `Draft created for ${args.partyName} — ${args.amount} EGP (${args.direction}). Review it in Financial Drafts.`, draftId: draft.id }
+      return { success: true, message: `Draft payment ${draft.number} created: ${args.amount} EGP ${args.direction === "INBOUND" ? "from" : "to"} ${party?.name || "unknown party"}. Review it in Draft Payments to complete and confirm.` }
     }
     default:
       return { error: `Unknown tool: ${name}` }

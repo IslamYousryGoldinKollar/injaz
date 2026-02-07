@@ -137,18 +137,20 @@ const TOOL_DECLARATIONS: any[] = [
     parameters: { type: "OBJECT", properties: {} },
   },
   {
-    name: "createDraft",
-    description: "Create a financial draft for review before pushing to the books",
+    name: "createDraftPayment",
+    description: "Create a draft payment from a voice note or manual input. Draft payments are saved to the Payment table but flagged as drafts for review. Use this when the user describes a payment via voice or wants to stage a payment for review. The user can later edit, complete missing info, and confirm it in Draft Payments.",
     parameters: {
       type: "OBJECT",
       properties: {
-        partyName: { type: "STRING", description: "Party name" },
-        amount: { type: "NUMBER", description: "Amount" },
-        direction: { type: "STRING", description: "INBOUND or OUTBOUND" },
-        description: { type: "STRING", description: "Description" },
-        category: { type: "STRING", description: "Category name" },
+        direction: { type: "STRING", description: "INBOUND (money received) or OUTBOUND (money paid out)" },
+        partyName: { type: "STRING", description: "Name of the vendor or client (can be approximate from voice)" },
+        amount: { type: "NUMBER", description: "Payment amount" },
+        description: { type: "STRING", description: "Payment description" },
+        category: { type: "STRING", description: "Payment category" },
+        date: { type: "STRING", description: "Payment date YYYY-MM-DD" },
+        voiceTranscript: { type: "STRING", description: "Original voice transcription text" },
       },
-      required: ["partyName", "amount", "direction"],
+      required: ["direction", "amount"],
     },
   },
 ]
