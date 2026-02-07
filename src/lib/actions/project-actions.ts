@@ -4,14 +4,19 @@ import prisma from "@/lib/prisma"
 import type { ProjectStatus } from "@prisma/client"
 
 export async function getProjects(orgId: string, status?: ProjectStatus) {
-  return prisma.project.findMany({
-    where: { organizationId: orgId, ...(status ? { status } : {}) },
-    include: {
-      clientParty: { select: { id: true, name: true } },
-      _count: { select: { tasks: true, payments: true, documents: true } },
-    },
-    orderBy: { createdAt: "desc" },
-  })
+  try {
+    return await prisma.project.findMany({
+      where: { organizationId: orgId, ...(status ? { status } : {}) },
+      include: {
+        clientParty: { select: { id: true, name: true } },
+        _count: { select: { tasks: true, payments: true, documents: true } },
+      },
+      orderBy: { createdAt: "desc" },
+    })
+  } catch (error) {
+    console.error("[getProjects] DB error:", error)
+    return []
+  }
 }
 
 export async function getProjectById(id: string) {
@@ -53,10 +58,15 @@ export async function deleteProject(id: string) {
 }
 
 export async function getProjectStats(orgId: string) {
-  const [active, completed, onHold] = await Promise.all([
-    prisma.project.count({ where: { organizationId: orgId, status: "ACTIVE" } }),
-    prisma.project.count({ where: { organizationId: orgId, status: "COMPLETED" } }),
-    prisma.project.count({ where: { organizationId: orgId, status: "ON_HOLD" } }),
-  ])
-  return { active, completed, onHold, total: active + completed + onHold }
+  try {
+    const [active, completed, onHold] = await Promise.all([
+      prisma.project.count({ where: { organizationId: orgId, status: "ACTIVE" } }),
+      prisma.project.count({ where: { organizationId: orgId, status: "COMPLETED" } }),
+      prisma.project.count({ where: { organizationId: orgId, status: "ON_HOLD" } }),
+    ])
+    return { active, completed, onHold, total: active + completed + onHold }
+  } catch (error) {
+    console.error("[getProjectStats] DB error:", error)
+    return { active: 0, completed: 0, onHold: 0, total: 0 }
+  }
 }

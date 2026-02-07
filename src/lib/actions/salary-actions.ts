@@ -5,15 +5,20 @@ import prisma from "@/lib/prisma"
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
 export async function getSalaries(filters?: { userId?: string; status?: string; month?: string }) {
-  const where: any = {}
-  if (filters?.userId) where.userId = filters.userId
-  if (filters?.status) where.status = filters.status
-  if (filters?.month) where.month = filters.month
-  return prisma.salary.findMany({
-    where,
-    include: { user: true, payments: true },
-    orderBy: { scheduledDate: "desc" },
-  })
+  try {
+    const where: any = {}
+    if (filters?.userId) where.userId = filters.userId
+    if (filters?.status) where.status = filters.status
+    if (filters?.month) where.month = filters.month
+    return await prisma.salary.findMany({
+      where,
+      include: { user: true, payments: true },
+      orderBy: { scheduledDate: "desc" },
+    })
+  } catch (error) {
+    console.error("[getSalaries] DB error:", error)
+    return []
+  }
 }
 
 export async function getSalaryById(id: string) {
@@ -54,11 +59,16 @@ export async function deleteSalary(id: string) {
 }
 
 export async function getSalaryStats(filters?: { month?: string }) {
-  const where: any = {}
-  if (filters?.month) where.month = filters.month
-  const salaries = await prisma.salary.findMany({ where })
-  const total = salaries.reduce((s, sal) => s + Number(sal.grossAmount), 0)
-  const paid = salaries.filter(s => s.status === "PAID").reduce((s, sal) => s + Number(sal.netAmount), 0)
-  const pending = salaries.filter(s => ["SCHEDULED", "DEFERRED"].includes(s.status)).reduce((s, sal) => s + Number(sal.netAmount), 0)
-  return { total, paid, pending, count: salaries.length }
+  try {
+    const where: any = {}
+    if (filters?.month) where.month = filters.month
+    const salaries = await prisma.salary.findMany({ where })
+    const total = salaries.reduce((s, sal) => s + Number(sal.grossAmount), 0)
+    const paid = salaries.filter(s => s.status === "PAID").reduce((s, sal) => s + Number(sal.netAmount), 0)
+    const pending = salaries.filter(s => ["SCHEDULED", "DEFERRED"].includes(s.status)).reduce((s, sal) => s + Number(sal.netAmount), 0)
+    return { total, paid, pending, count: salaries.length }
+  } catch (error) {
+    console.error("[getSalaryStats] DB error:", error)
+    return { total: 0, paid: 0, pending: 0, count: 0 }
+  }
 }

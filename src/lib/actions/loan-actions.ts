@@ -5,13 +5,18 @@ import prisma from "@/lib/prisma"
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
 export async function getLoans(filters?: { status?: string }) {
-  const where: any = {}
-  if (filters?.status) where.status = filters.status
-  return prisma.ownerLoan.findMany({
-    where,
-    include: { owner: true, payments: true },
-    orderBy: { loanDate: "desc" },
-  })
+  try {
+    const where: any = {}
+    if (filters?.status) where.status = filters.status
+    return await prisma.ownerLoan.findMany({
+      where,
+      include: { owner: true, payments: true },
+      orderBy: { loanDate: "desc" },
+    })
+  } catch (error) {
+    console.error("[getLoans] DB error:", error)
+    return []
+  }
 }
 
 export async function getLoanById(id: string) {

@@ -5,13 +5,18 @@ import prisma from "@/lib/prisma"
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
 export async function getVatLiabilities(filters?: { status?: string }) {
-  const where: any = {}
-  if (filters?.status) where.status = filters.status
-  return prisma.vatLiability.findMany({
-    where,
-    include: { payments: true },
-    orderBy: { dueDate: "desc" },
-  })
+  try {
+    const where: any = {}
+    if (filters?.status) where.status = filters.status
+    return await prisma.vatLiability.findMany({
+      where,
+      include: { payments: true },
+      orderBy: { dueDate: "desc" },
+    })
+  } catch (error) {
+    console.error("[getVatLiabilities] DB error:", error)
+    return []
+  }
 }
 
 export async function getVatLiabilityById(id: string) {

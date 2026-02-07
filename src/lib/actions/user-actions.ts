@@ -7,43 +7,53 @@ export async function syncUserFromFirebase(firebaseUser: {
   email: string
   displayName?: string | null
 }) {
-  const ADMIN_UIDS = [
-    "CwiLoJz05afRtcL0QuZN2fhmx0s1",
-    "7esbWimnRpYEF0PpajkhafQmQlg2",
-    "p4g86ngGCkfb9ryk3R707CWKPIs2",
-  ]
+  try {
+    const ADMIN_UIDS = [
+      "CwiLoJz05afRtcL0QuZN2fhmx0s1",
+      "7esbWimnRpYEF0PpajkhafQmQlg2",
+      "p4g86ngGCkfb9ryk3R707CWKPIs2",
+    ]
 
-  let org = await prisma.organization.findFirst()
-  if (!org) {
-    org = await prisma.organization.create({
-      data: { id: "goldinkollar-main", name: "Goldin Kollar", currency: "EGP" },
+    let org = await prisma.organization.findFirst()
+    if (!org) {
+      org = await prisma.organization.create({
+        data: { id: "goldinkollar-main", name: "Goldin Kollar", currency: "EGP" },
+      })
+    }
+
+    const isAdmin = ADMIN_UIDS.includes(firebaseUser.uid)
+
+    const user = await prisma.user.upsert({
+      where: { id: firebaseUser.uid },
+      update: {
+        email: firebaseUser.email,
+        name: firebaseUser.displayName || firebaseUser.email.split("@")[0],
+      },
+      create: {
+        id: firebaseUser.uid,
+        email: firebaseUser.email,
+        name: firebaseUser.displayName || firebaseUser.email.split("@")[0],
+        role: isAdmin ? "Admin" : "Employee",
+        approvalStatus: isAdmin ? "approved" : "pending",
+        organizationId: org.id,
+      },
+      include: { organization: true },
     })
+
+    return user
+  } catch (error) {
+    console.error("[syncUserFromFirebase] DB error:", error)
+    throw error
   }
-
-  const isAdmin = ADMIN_UIDS.includes(firebaseUser.uid)
-
-  const user = await prisma.user.upsert({
-    where: { id: firebaseUser.uid },
-    update: {
-      email: firebaseUser.email,
-      name: firebaseUser.displayName || firebaseUser.email.split("@")[0],
-    },
-    create: {
-      id: firebaseUser.uid,
-      email: firebaseUser.email,
-      name: firebaseUser.displayName || firebaseUser.email.split("@")[0],
-      role: isAdmin ? "Admin" : "Employee",
-      approvalStatus: isAdmin ? "approved" : "pending",
-      organizationId: org.id,
-    },
-    include: { organization: true },
-  })
-
-  return user
 }
 
 export async function getAllUsers() {
-  return prisma.user.findMany({ orderBy: { name: "asc" } })
+  try {
+    return await prisma.user.findMany({ orderBy: { name: "asc" } })
+  } catch (error) {
+    console.error("[getAllUsers] DB error:", error)
+    return []
+  }
 }
 
 export async function getUserById(id: string) {
@@ -63,7 +73,6 @@ export async function updateUserApproval(userId: string, status: string) {
 
 export async function updateUserProfile(userId: string, data: {
   name?: string
-  phone?: string
 }) {
   return prisma.user.update({ where: { id: userId }, data })
 }

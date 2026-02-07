@@ -5,10 +5,15 @@ import prisma from "@/lib/prisma"
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
 export async function getDrafts(status?: string) {
-  return prisma.financialDraft.findMany({
-    where: status ? { status: status as any } : {},
-    orderBy: { createdAt: "desc" },
-  })
+  try {
+    return await prisma.financialDraft.findMany({
+      where: status ? { status: status as any } : {},
+      orderBy: { createdAt: "desc" },
+    })
+  } catch (error) {
+    console.error("[getDrafts] DB error:", error)
+    return []
+  }
 }
 
 export async function createDraft(data: {

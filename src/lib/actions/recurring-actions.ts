@@ -5,12 +5,17 @@ import prisma from "@/lib/prisma"
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
 export async function getRecurringExpenses(filters?: { isActive?: boolean }) {
-  const where: any = {}
-  if (filters?.isActive !== undefined) where.isActive = filters.isActive
-  return prisma.recurringExpense.findMany({
-    where,
-    orderBy: { nextDueDate: "asc" },
-  })
+  try {
+    const where: any = {}
+    if (filters?.isActive !== undefined) where.isActive = filters.isActive
+    return await prisma.recurringExpense.findMany({
+      where,
+      orderBy: { nextDueDate: "asc" },
+    })
+  } catch (error) {
+    console.error("[getRecurringExpenses] DB error:", error)
+    return []
+  }
 }
 
 export async function getRecurringExpenseById(id: string) {

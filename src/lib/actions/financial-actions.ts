@@ -12,31 +12,36 @@ export async function getPayments(orgId: string, filters?: {
   from?: Date
   to?: Date
 }) {
-  return prisma.payment.findMany({
-    where: {
-      organizationId: orgId,
-      isDraft: false,
-      ...(filters?.direction ? { direction: filters.direction } : {}),
-      ...(filters?.status ? { status: filters.status } : {}),
-      ...(filters?.partyId ? { partyId: filters.partyId } : {}),
-      ...(filters?.projectId ? { projectId: filters.projectId } : {}),
-      ...(filters?.categoryId ? { categoryId: filters.categoryId } : {}),
-      ...(filters?.from || filters?.to
-        ? {
-            plannedDate: {
-              ...(filters?.from ? { gte: filters.from } : {}),
-              ...(filters?.to ? { lte: filters.to } : {}),
-            },
-          }
-        : {}),
-    },
-    include: {
-      party: { select: { id: true, name: true, type: true } },
-      category: { select: { id: true, name: true, color: true } },
-      project: { select: { id: true, name: true, color: true } },
-    },
-    orderBy: { plannedDate: "desc" },
-  })
+  try {
+    return await prisma.payment.findMany({
+      where: {
+        organizationId: orgId,
+        isDraft: false,
+        ...(filters?.direction ? { direction: filters.direction } : {}),
+        ...(filters?.status ? { status: filters.status } : {}),
+        ...(filters?.partyId ? { partyId: filters.partyId } : {}),
+        ...(filters?.projectId ? { projectId: filters.projectId } : {}),
+        ...(filters?.categoryId ? { categoryId: filters.categoryId } : {}),
+        ...(filters?.from || filters?.to
+          ? {
+              plannedDate: {
+                ...(filters?.from ? { gte: filters.from } : {}),
+                ...(filters?.to ? { lte: filters.to } : {}),
+              },
+            }
+          : {}),
+      },
+      include: {
+        party: { select: { id: true, name: true, type: true } },
+        category: { select: { id: true, name: true, color: true } },
+        project: { select: { id: true, name: true, color: true } },
+      },
+      orderBy: { plannedDate: "desc" },
+    })
+  } catch (error) {
+    console.error("[getPayments] DB error:", error)
+    return []
+  }
 }
 
 export async function getPaymentById(id: string) {
@@ -116,16 +121,21 @@ export async function getNextDraftNumber(orgId: string) {
 // ============================================================================
 
 export async function getDraftPayments(orgId: string) {
-  return prisma.payment.findMany({
-    where: { organizationId: orgId, isDraft: true },
-    include: {
-      party: { select: { id: true, name: true, type: true } },
-      category: { select: { id: true, name: true, color: true } },
-      project: { select: { id: true, name: true, color: true } },
-      createdBy: { select: { id: true, name: true } },
-    },
-    orderBy: { createdAt: "desc" },
-  })
+  try {
+    return await prisma.payment.findMany({
+      where: { organizationId: orgId, isDraft: true },
+      include: {
+        party: { select: { id: true, name: true, type: true } },
+        category: { select: { id: true, name: true, color: true } },
+        project: { select: { id: true, name: true, color: true } },
+        createdBy: { select: { id: true, name: true } },
+      },
+      orderBy: { createdAt: "desc" },
+    })
+  } catch (error) {
+    console.error("[getDraftPayments] DB error:", error)
+    return []
+  }
 }
 
 export async function createDraftPayment(data: {
@@ -193,32 +203,42 @@ export async function confirmDraftPayment(id: string, data: {
 }
 
 export async function getFinancialSummary(orgId: string) {
-  const [inbound, outbound] = await Promise.all([
-    prisma.payment.aggregate({
-      where: { organizationId: orgId, direction: "INBOUND", status: "COMPLETED" },
-      _sum: { actualAmount: true },
-    }),
-    prisma.payment.aggregate({
-      where: { organizationId: orgId, direction: "OUTBOUND", status: "COMPLETED" },
-      _sum: { actualAmount: true },
-    }),
-  ])
+  try {
+    const [inbound, outbound] = await Promise.all([
+      prisma.payment.aggregate({
+        where: { organizationId: orgId, direction: "INBOUND", status: "COMPLETED" },
+        _sum: { actualAmount: true },
+      }),
+      prisma.payment.aggregate({
+        where: { organizationId: orgId, direction: "OUTBOUND", status: "COMPLETED" },
+        _sum: { actualAmount: true },
+      }),
+    ])
 
-  const revenue = Number(inbound._sum.actualAmount || 0)
-  const expenses = Number(outbound._sum.actualAmount || 0)
+    const revenue = Number(inbound._sum.actualAmount || 0)
+    const expenses = Number(outbound._sum.actualAmount || 0)
 
-  return {
-    revenue,
-    expenses,
-    netProfit: revenue - expenses,
+    return {
+      revenue,
+      expenses,
+      netProfit: revenue - expenses,
+    }
+  } catch (error) {
+    console.error("[getFinancialSummary] DB error:", error)
+    return { revenue: 0, expenses: 0, netProfit: 0 }
   }
 }
 
 export async function getCategories(orgId: string, type?: Direction) {
-  return prisma.category.findMany({
-    where: { organizationId: orgId, ...(type ? { type } : {}) },
-    orderBy: { name: "asc" },
-  })
+  try {
+    return await prisma.category.findMany({
+      where: { organizationId: orgId, ...(type ? { type } : {}) },
+      orderBy: { name: "asc" },
+    })
+  } catch (error) {
+    console.error("[getCategories] DB error:", error)
+    return []
+  }
 }
 
 export async function createCategory(data: {

@@ -4,10 +4,15 @@ import prisma from "@/lib/prisma"
 import type { PartyType } from "@prisma/client"
 
 export async function getParties(orgId: string, type?: PartyType) {
-  return prisma.party.findMany({
-    where: { organizationId: orgId, ...(type ? { type } : {}) },
-    orderBy: { name: "asc" },
-  })
+  try {
+    return await prisma.party.findMany({
+      where: { organizationId: orgId, ...(type ? { type } : {}) },
+      orderBy: { name: "asc" },
+    })
+  } catch (error) {
+    console.error("[getParties] DB error:", error)
+    return []
+  }
 }
 
 export async function searchParties(orgId: string, query: string, type?: PartyType) {
@@ -78,10 +83,15 @@ export async function deleteParty(id: string) {
 }
 
 export async function getPartyStats(orgId: string) {
-  const [clients, vendors, employees] = await Promise.all([
-    prisma.party.count({ where: { organizationId: orgId, type: "CLIENT" } }),
-    prisma.party.count({ where: { organizationId: orgId, type: "VENDOR" } }),
-    prisma.party.count({ where: { organizationId: orgId, type: "EMPLOYEE" } }),
-  ])
-  return { clients, vendors, employees, total: clients + vendors + employees }
+  try {
+    const [clients, vendors, employees] = await Promise.all([
+      prisma.party.count({ where: { organizationId: orgId, type: "CLIENT" } }),
+      prisma.party.count({ where: { organizationId: orgId, type: "VENDOR" } }),
+      prisma.party.count({ where: { organizationId: orgId, type: "EMPLOYEE" } }),
+    ])
+    return { clients, vendors, employees, total: clients + vendors + employees }
+  } catch (error) {
+    console.error("[getPartyStats] DB error:", error)
+    return { clients: 0, vendors: 0, employees: 0, total: 0 }
+  }
 }

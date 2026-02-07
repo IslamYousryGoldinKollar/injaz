@@ -7,18 +7,23 @@ export async function getTasks(filters?: {
   assigneeId?: string
   status?: string
 }) {
-  return prisma.task.findMany({
-    where: {
-      ...(filters?.projectId ? { projectId: filters.projectId } : {}),
-      ...(filters?.assigneeId ? { assigneeId: filters.assigneeId } : {}),
-      ...(filters?.status ? { status: filters.status } : {}),
-    },
-    include: {
-      project: { select: { id: true, name: true, color: true } },
-      assignee: { select: { id: true, name: true, avatar: true } },
-    },
-    orderBy: { createdAt: "desc" },
-  })
+  try {
+    return await prisma.task.findMany({
+      where: {
+        ...(filters?.projectId ? { projectId: filters.projectId } : {}),
+        ...(filters?.assigneeId ? { assigneeId: filters.assigneeId } : {}),
+        ...(filters?.status ? { status: filters.status } : {}),
+      },
+      include: {
+        project: { select: { id: true, name: true, color: true } },
+        assignee: { select: { id: true, name: true, avatar: true } },
+      },
+      orderBy: { createdAt: "desc" },
+    })
+  } catch (error) {
+    console.error("[getTasks] DB error:", error)
+    return []
+  }
 }
 
 export async function getTaskById(id: string) {
@@ -67,10 +72,15 @@ export async function deleteTask(id: string) {
 }
 
 export async function getQuickTasks(userId: string, date: string) {
-  return prisma.quickTask.findMany({
-    where: { ownerUid: userId, date },
-    orderBy: { createdAt: "asc" },
-  })
+  try {
+    return await prisma.quickTask.findMany({
+      where: { ownerUid: userId, date },
+      orderBy: { createdAt: "asc" },
+    })
+  } catch (error) {
+    console.error("[getQuickTasks] DB error:", error)
+    return []
+  }
 }
 
 export async function createQuickTask(data: {
