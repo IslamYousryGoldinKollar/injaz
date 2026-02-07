@@ -4,7 +4,8 @@ import { createContext, useContext, useState, useEffect, type ReactNode } from "
 import { auth } from "@/lib/firebase"
 import {
   onAuthStateChanged,
-  signInWithPopup,
+  signInWithRedirect,
+  getRedirectResult,
   GoogleAuthProvider,
   signOut as firebaseSignOut,
   type User as FirebaseUser,
@@ -28,6 +29,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setLoading(false)
       return
     }
+    // Check for redirect result on page load
+    getRedirectResult(auth).catch((err) => {
+      console.error("Redirect result error:", err)
+    })
     const unsubscribe = onAuthStateChanged(auth, (user) => {
       setAuthUser(user)
       setLoading(false)
@@ -37,7 +42,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const signIn = async () => {
     const provider = new GoogleAuthProvider()
-    await signInWithPopup(auth, provider)
+    await signInWithRedirect(auth, provider)
   }
 
   const signOut = async () => {
