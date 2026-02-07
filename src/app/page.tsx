@@ -9,9 +9,10 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { getDashboardStats, getCategoryBreakdown, getMonthlyBreakdown, getProjectBreakdown, getTopParties } from "@/lib/actions/dashboard-actions"
 import { formatCurrency, cn } from "@/lib/utils"
+import { DashboardSkeleton } from "@/components/ui/skeleton"
 import {
   TrendingUp, TrendingDown, Banknote, Users, FolderKanban, ListTodo,
-  ArrowUpRight, ArrowDownLeft, Sparkles, BarChart3,
+  ArrowUpRight, ArrowDownLeft, Sparkles,
 } from "lucide-react"
 import Link from "next/link"
 
@@ -50,14 +51,7 @@ export default function HomePage() {
 
   if (!authUser || !currentUser) return null
   if (loading || !stats) {
-    return (
-      <div className="flex h-full items-center justify-center">
-        <div className="text-center">
-          <BarChart3 className="mx-auto mb-4 h-8 w-8 animate-pulse text-muted-foreground" />
-          <p className="text-muted-foreground">Loading dashboard...</p>
-        </div>
-      </div>
-    )
+    return <DashboardSkeleton />
   }
 
   const maxMonthly = Math.max(...monthly.map((m: any) => Math.max(m.income, m.expense)), 1)
