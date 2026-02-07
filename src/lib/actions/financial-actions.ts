@@ -15,6 +15,7 @@ export async function getPayments(orgId: string, filters?: {
   return prisma.payment.findMany({
     where: {
       organizationId: orgId,
+      isDraft: false,
       ...(filters?.direction ? { direction: filters.direction } : {}),
       ...(filters?.status ? { status: filters.status } : {}),
       ...(filters?.partyId ? { partyId: filters.partyId } : {}),
@@ -101,6 +102,94 @@ export async function getNextPaymentNumber(orgId: string, direction: Direction) 
   })
   const prefix = direction === "INBOUND" ? "RCV" : "PAY"
   return `${prefix}-${String(count + 1).padStart(4, "0")}`
+}
+
+export async function getNextDraftNumber(orgId: string) {
+  const count = await prisma.payment.count({
+    where: { organizationId: orgId, isDraft: true },
+  })
+  return `DRF-${String(count + 1).padStart(4, "0")}`
+}
+
+// ============================================================================
+// DRAFT PAYMENTS (same Payment table, isDraft = true)
+// ============================================================================
+
+export async function getDraftPayments(orgId: string) {
+  return prisma.payment.findMany({
+    where: { organizationId: orgId, isDraft: true },
+    include: {
+      party: { select: { id: true, name: true, type: true } },
+      category: { select: { id: true, name: true, color: true } },
+      project: { select: { id: true, name: true, color: true } },
+      createdBy: { select: { id: true, name: true } },
+    },
+    orderBy: { createdAt: "desc" },
+  })
+}
+
+export async function createDraftPayment(data: {
+  organizationId: string
+  number: string
+  direction: Direction
+  partyId?: string
+  categoryId?: string
+  projectId?: string
+  plannedDate?: Date
+  expectedAmount: number
+  currency?: Currency
+  method?: PaymentMethod
+  description?: string
+  voiceTranscript?: string
+  notes?: string
+  createdById: string
+}) {
+  return prisma.payment.create({
+    data: {
+      ...data,
+      plannedDate: data.plannedDate || new Date(),
+      isDraft: true,
+      status: "PLANNED" as PaymentStatus,
+    } as never,
+  })
+}
+
+export async function updateDraftPayment(id: string, data: {
+  direction?: Direction
+  partyId?: string | null
+  categoryId?: string | null
+  projectId?: string | null
+  plannedDate?: Date
+  expectedAmount?: number
+  method?: PaymentMethod
+  description?: string
+  notes?: string
+}) {
+  return prisma.payment.update({ where: { id }, data: data as never })
+}
+
+export async function confirmDraftPayment(id: string, data: {
+  direction?: Direction
+  status?: PaymentStatus
+  partyId: string
+  categoryId?: string | null
+  projectId?: string | null
+  plannedDate?: Date
+  actualDate?: Date
+  expectedAmount?: number
+  actualAmount?: number
+  method?: PaymentMethod
+  description?: string
+  notes?: string
+}) {
+  return prisma.payment.update({
+    where: { id },
+    data: {
+      ...data,
+      isDraft: false,
+      status: data.status || ("PLANNED" as PaymentStatus),
+    } as never,
+  })
 }
 
 export async function getFinancialSummary(orgId: string) {

@@ -383,8 +383,8 @@ model Payment {
   direction Direction
   status    PaymentStatus @default(PLANNED)
 
-  partyId    String
-  party      Party     @relation(fields: [partyId], references: [id])
+  partyId    String?
+  party      Party?    @relation(fields: [partyId], references: [id])
   categoryId String?
   category   Category? @relation(fields: [categoryId], references: [id])
   projectId  String?
@@ -415,6 +415,9 @@ model Payment {
   parentPayment     Payment?  @relation("Installments", fields: [parentPaymentId], references: [id])
   installments      Payment[] @relation("Installments")
 
+  isDraft          Boolean  @default(false)
+  voiceTranscript  String?
+
   notes       String?
   createdById String
   createdBy   User     @relation("PaymentCreator", fields: [createdById], references: [id])
@@ -423,6 +426,7 @@ model Payment {
 
   @@unique([organizationId, number])
   @@index([organizationId, direction, status])
+  @@index([organizationId, isDraft])
   @@index([partyId])
   @@index([plannedDate])
 }

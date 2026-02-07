@@ -20,6 +20,8 @@ interface ComboboxProps {
   emptyMessage?: string
   className?: string
   disabled?: boolean
+  onCreateNew?: (search: string) => void
+  createNewLabel?: string
 }
 
 export function Combobox({
@@ -31,6 +33,8 @@ export function Combobox({
   emptyMessage = "No results found.",
   className,
   disabled,
+  onCreateNew,
+  createNewLabel = "+ Add New",
 }: ComboboxProps) {
   const [open, setOpen] = React.useState(false)
   const [search, setSearch] = React.useState("")
@@ -115,6 +119,21 @@ export function Combobox({
               ))
             )}
           </div>
+          {onCreateNew && (
+            <div className="border-t p-1">
+              <button
+                type="button"
+                className="flex w-full items-center rounded-md px-2 py-1.5 text-sm font-medium text-primary hover:bg-accent"
+                onClick={() => {
+                  onCreateNew(search)
+                  setOpen(false)
+                  setSearch("")
+                }}
+              >
+                {createNewLabel}
+              </button>
+            </div>
+          )}
         </div>
       )}
     </div>
