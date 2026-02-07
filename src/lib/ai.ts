@@ -115,4 +115,40 @@ const TOOL_DECLARATIONS: any[] = [
       },
     },
   },
+  {
+    name: "createDocument",
+    description: "Create a quotation, invoice, purchase order, or vendor bill with line items",
+    parameters: {
+      type: "OBJECT",
+      properties: {
+        type: { type: "STRING", description: "QUOTATION, INVOICE, PURCHASE_ORDER, or VENDOR_BILL" },
+        partyName: { type: "STRING", description: "Client or vendor name" },
+        projectName: { type: "STRING", description: "Project to link to" },
+        lineItems: { type: "STRING", description: "JSON array of {description, quantity, unitPrice}" },
+        vatRate: { type: "NUMBER", description: "VAT rate as decimal, e.g. 0.14" },
+        notes: { type: "STRING", description: "Notes" },
+      },
+      required: ["type", "partyName", "lineItems"],
+    },
+  },
+  {
+    name: "getDashboard",
+    description: "Get dashboard stats: total revenue, expenses, net profit, party count, project count",
+    parameters: { type: "OBJECT", properties: {} },
+  },
+  {
+    name: "createDraft",
+    description: "Create a financial draft for review before pushing to the books",
+    parameters: {
+      type: "OBJECT",
+      properties: {
+        partyName: { type: "STRING", description: "Party name" },
+        amount: { type: "NUMBER", description: "Amount" },
+        direction: { type: "STRING", description: "INBOUND or OUTBOUND" },
+        description: { type: "STRING", description: "Description" },
+        category: { type: "STRING", description: "Category name" },
+      },
+      required: ["partyName", "amount", "direction"],
+    },
+  },
 ]

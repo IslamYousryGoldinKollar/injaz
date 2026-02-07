@@ -97,6 +97,75 @@ async function executeTool(name: string, args: Record<string, any>, orgId: strin
       })
       return { tasks: tasks.map((t: any) => ({ title: t.title, status: t.status, priority: t.priority, project: t.project?.name, assignee: t.assignee?.name })) }
     }
+    case "createDocument": {
+      let party = await prisma.party.findFirst({
+        where: { organizationId: orgId, name: { contains: args.partyName, mode: "insensitive" } },
+      })
+      if (!party) {
+        const docType = args.type || "QUOTATION"
+        party = await prisma.party.create({
+          data: { organizationId: orgId, name: args.partyName, type: ["QUOTATION", "INVOICE"].includes(docType) ? "CLIENT" : "VENDOR" } as any,
+        })
+      }
+      let projectId: string | undefined
+      if (args.projectName) {
+        const proj = await prisma.project.findFirst({ where: { organizationId: orgId, name: { contains: args.projectName, mode: "insensitive" } } })
+        projectId = proj?.id
+      }
+      let lineItems: { description: string; quantity: number; unitPrice: number }[] = []
+      try { lineItems = JSON.parse(args.lineItems) } catch { return { error: "Invalid lineItems JSON" } }
+      const direction = ["QUOTATION", "INVOICE"].includes(args.type) ? "INBOUND" : "OUTBOUND"
+      const prefix = args.type === "QUOTATION" ? "QT" : args.type === "INVOICE" ? "INV" : args.type === "PURCHASE_ORDER" ? "PO" : "VB"
+      const docCount = await prisma.document.count({ where: { organizationId: orgId, type: args.type as any } })
+      const docNumber = `${prefix}-${String(docCount + 1).padStart(4, "0")}`
+      const subtotal = lineItems.reduce((s, l) => s + l.quantity * l.unitPrice, 0)
+      const vatRate = args.vatRate ?? 0.14
+      const vatAmount = subtotal * vatRate
+      const grossAmount = subtotal + vatAmount
+      const doc = await prisma.document.create({
+        data: {
+          organizationId: orgId, number: docNumber, type: args.type as any, direction: direction as any,
+          status: "DRAFT", partyId: party.id, projectId, issueDate: new Date(),
+          subtotal, vatRate, vatAmount, incomeTaxRate: 0, incomeTaxAmount: 0,
+          grossAmount, netAmount: grossAmount, remainingAmount: grossAmount,
+          createdById: userId, notes: args.notes,
+          lineItems: {
+            create: lineItems.map((item, i) => ({
+              description: item.description, quantity: item.quantity, unitPrice: item.unitPrice,
+              total: item.quantity * item.unitPrice, vatAmount: item.quantity * item.unitPrice * vatRate, sortOrder: i,
+            })),
+          },
+        } as any,
+      })
+      return { success: true, message: `${args.type} ${doc.number} created for ${party.name} — ${lineItems.length} line items, total ${grossAmount.toFixed(2)} EGP` }
+    }
+    case "getDashboard": {
+      const [inAgg, outAgg, partyCount, projectCount, taskCount] = await Promise.all([
+        prisma.payment.aggregate({ where: { organizationId: orgId, direction: "INBOUND" }, _sum: { expectedAmount: true }, _count: true }),
+        prisma.payment.aggregate({ where: { organizationId: orgId, direction: "OUTBOUND" }, _sum: { expectedAmount: true }, _count: true }),
+        prisma.party.count({ where: { organizationId: orgId } }),
+        prisma.project.count({ where: { organizationId: orgId } }),
+        prisma.task.count(),
+      ])
+      return {
+        totalRevenue: Number(inAgg._sum.expectedAmount || 0),
+        totalExpenses: Number(outAgg._sum.expectedAmount || 0),
+        netProfit: Number(inAgg._sum.expectedAmount || 0) - Number(outAgg._sum.expectedAmount || 0),
+        totalPayments: inAgg._count + outAgg._count,
+        partyCount, projectCount, taskCount,
+      }
+    }
+    case "createDraft": {
+      const draft = await prisma.financialDraft.create({
+        data: {
+          type: "PAYMENT" as any, source: "MANUAL" as any, createdById: userId,
+          partyName: args.partyName, amount: args.amount,
+          direction: args.direction as any, description: args.description,
+          category: args.category,
+        },
+      })
+      return { success: true, message: `Draft created for ${args.partyName} — ${args.amount} EGP (${args.direction}). Review it in Financial Drafts.`, draftId: draft.id }
+    }
     default:
       return { error: `Unknown tool: ${name}` }
   }
