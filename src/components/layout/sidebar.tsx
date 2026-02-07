@@ -15,22 +15,24 @@ import {
   Users,
   Settings,
   LogOut,
-  FileText,
   Banknote,
   ChevronLeft,
   ChevronRight,
+  Sparkles,
+  Upload,
 } from "lucide-react"
 import { useState } from "react"
 
 const navItems = [
-  { label: "AI Assistant", href: "/", icon: LayoutDashboard },
+  { label: "Dashboard", href: "/", icon: LayoutDashboard },
+  { label: "AI Assistant", href: "/ai", icon: Sparkles },
   { label: "Parties", href: "/parties", icon: Users },
   { label: "Projects", href: "/projects", icon: FolderKanban },
   { label: "Tasks", href: "/tasks", icon: ListTodo },
   { label: "Day Planner", href: "/day", icon: CalendarCheck2 },
   { label: "Financials", href: "/financials", icon: Banknote },
   { label: "Documents", href: "/financials/invoices", icon: Receipt },
-  { label: "Drafts", href: "/financials/drafts", icon: FileText },
+  { label: "Import", href: "/import", icon: Upload },
   { label: "Settings", href: "/settings", icon: Settings },
 ]
 
