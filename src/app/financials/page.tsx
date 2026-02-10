@@ -68,11 +68,18 @@ const PAYMENT_METHODS = [
 
 const EMPTY_SUMMARY = {
   grossRevenue: 0, grossExpenses: 0, netProfit: 0,
+  totalGrossIncome: 0, totalGrossExpenses: 0, netBalanceAfterAll: 0,
   vatCollected: 0, vatPaid: 0, netVatPayable: 0,
+  plannedVatCollected: 0, plannedVatPaid: 0, plannedNetVat: 0,
+  totalVatCollected: 0, totalVatPaid: 0, totalNetVat: 0,
   taxDeductedByClients: 0, taxWeDeducted: 0,
+  plannedTaxByClients: 0, plannedTaxWeDeduct: 0,
+  totalTaxByClients: 0, totalTaxWeDeducted: 0,
   bankBalance: 0, bankIn: 0, bankOut: 0,
+  plannedBankIn: 0, plannedBankOut: 0, plannedBankBalance: 0,
+  projectedBankBalance: 0,
   plannedIn: 0, plannedOut: 0, plannedBalance: 0,
-  totalPayments: 0,
+  totalPayments: 0, completedCount: 0, plannedCount: 0,
 }
 
 // ─── Calculation Helper ──────────────────────────────────────────────────────
@@ -339,128 +346,323 @@ export default function FinancialsPage() {
 
       {/* ─── Dashboard Cards ─── */}
       {dashTab === "overview" && (
-        <div className="grid gap-4 sm:grid-cols-3">
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">Gross Revenue</CardTitle>
-              <div className="rounded-lg bg-emerald-50 p-1.5 dark:bg-emerald-950/40"><TrendingUp className="h-4 w-4 text-emerald-600" /></div>
-            </CardHeader>
-            <CardContent><p className="text-2xl font-bold">{formatCurrency(summary.grossRevenue)}</p></CardContent>
-          </Card>
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">Gross Expenses</CardTitle>
-              <div className="rounded-lg bg-rose-50 p-1.5 dark:bg-rose-950/40"><TrendingDown className="h-4 w-4 text-rose-600" /></div>
-            </CardHeader>
-            <CardContent><p className="text-2xl font-bold">{formatCurrency(summary.grossExpenses)}</p></CardContent>
-          </Card>
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">Net Profit</CardTitle>
-              <div className={cn("rounded-lg p-1.5", summary.netProfit >= 0 ? "bg-emerald-50 dark:bg-emerald-950/40" : "bg-rose-50 dark:bg-rose-950/40")}>
-                <Banknote className={cn("h-4 w-4", summary.netProfit >= 0 ? "text-emerald-600" : "text-rose-600")} />
+        <div className="space-y-4">
+          {/* Row 1: Completed vs Planned */}
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between pb-2">
+                <CardTitle className="text-sm font-medium text-muted-foreground">Completed Income</CardTitle>
+                <div className="rounded-lg bg-emerald-50 p-1.5 dark:bg-emerald-950/40"><TrendingUp className="h-4 w-4 text-emerald-600" /></div>
+              </CardHeader>
+              <CardContent>
+                <p className="text-2xl font-bold text-emerald-600">{formatCurrency(summary.grossRevenue)}</p>
+                <p className="mt-1 text-xs text-muted-foreground">{summary.completedCount > 0 && `${summary.completedCount} completed`}</p>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between pb-2">
+                <CardTitle className="text-sm font-medium text-muted-foreground">Planned Income</CardTitle>
+                <div className="rounded-lg bg-emerald-50/60 p-1.5 dark:bg-emerald-950/20"><TrendingUp className="h-4 w-4 text-emerald-400" /></div>
+              </CardHeader>
+              <CardContent>
+                <p className="text-2xl font-bold text-emerald-400">{formatCurrency(summary.plannedIn)}</p>
+                <p className="mt-1 text-xs text-muted-foreground">Upcoming / pending</p>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between pb-2">
+                <CardTitle className="text-sm font-medium text-muted-foreground">Completed Expenses</CardTitle>
+                <div className="rounded-lg bg-rose-50 p-1.5 dark:bg-rose-950/40"><TrendingDown className="h-4 w-4 text-rose-600" /></div>
+              </CardHeader>
+              <CardContent>
+                <p className="text-2xl font-bold text-rose-600">{formatCurrency(summary.grossExpenses)}</p>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between pb-2">
+                <CardTitle className="text-sm font-medium text-muted-foreground">Planned Expenses</CardTitle>
+                <div className="rounded-lg bg-rose-50/60 p-1.5 dark:bg-rose-950/20"><TrendingDown className="h-4 w-4 text-rose-400" /></div>
+              </CardHeader>
+              <CardContent>
+                <p className="text-2xl font-bold text-rose-400">{formatCurrency(summary.plannedOut)}</p>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Row 2: Totals */}
+          <div className="grid gap-4 sm:grid-cols-3">
+            <Card className="border-emerald-200 dark:border-emerald-800">
+              <CardHeader className="flex flex-row items-center justify-between pb-2">
+                <CardTitle className="text-sm font-medium text-muted-foreground">Total Income (Completed + Planned)</CardTitle>
+                <div className="rounded-lg bg-emerald-100 p-1.5 dark:bg-emerald-900"><TrendingUp className="h-4 w-4 text-emerald-700" /></div>
+              </CardHeader>
+              <CardContent>
+                <p className="text-2xl font-bold text-emerald-700">{formatCurrency(summary.totalGrossIncome)}</p>
+                <p className="mt-1 text-xs text-muted-foreground">{formatCurrency(summary.grossRevenue)} completed + {formatCurrency(summary.plannedIn)} planned</p>
+              </CardContent>
+            </Card>
+            <Card className="border-rose-200 dark:border-rose-800">
+              <CardHeader className="flex flex-row items-center justify-between pb-2">
+                <CardTitle className="text-sm font-medium text-muted-foreground">Total Expenses (Completed + Planned)</CardTitle>
+                <div className="rounded-lg bg-rose-100 p-1.5 dark:bg-rose-900"><TrendingDown className="h-4 w-4 text-rose-700" /></div>
+              </CardHeader>
+              <CardContent>
+                <p className="text-2xl font-bold text-rose-700">{formatCurrency(summary.totalGrossExpenses)}</p>
+                <p className="mt-1 text-xs text-muted-foreground">{formatCurrency(summary.grossExpenses)} completed + {formatCurrency(summary.plannedOut)} planned</p>
+              </CardContent>
+            </Card>
+            <Card className={cn("border-2", summary.netBalanceAfterAll >= 0 ? "border-emerald-300 dark:border-emerald-700" : "border-rose-300 dark:border-rose-700")}>
+              <CardHeader className="flex flex-row items-center justify-between pb-2">
+                <CardTitle className="text-sm font-medium text-muted-foreground">Net Balance (After VAT & 3% Tax)</CardTitle>
+                <div className={cn("rounded-lg p-1.5", summary.netBalanceAfterAll >= 0 ? "bg-emerald-100 dark:bg-emerald-900" : "bg-rose-100 dark:bg-rose-900")}>
+                  <Scale className={cn("h-4 w-4", summary.netBalanceAfterAll >= 0 ? "text-emerald-700" : "text-rose-700")} />
+                </div>
+              </CardHeader>
+              <CardContent>
+                <p className={cn("text-2xl font-bold", summary.netBalanceAfterAll >= 0 ? "text-emerald-700" : "text-rose-700")}>
+                  {formatCurrency(summary.netBalanceAfterAll)}
+                </p>
+                <p className="mt-1 text-xs text-muted-foreground">Income − Expenses (incl. VAT & tax deductions)</p>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Row 3: Quick stats */}
+          <div className="rounded-xl border bg-secondary/30 p-4">
+            <div className="grid grid-cols-2 gap-4 sm:grid-cols-4 text-center">
+              <div>
+                <p className="text-xs text-muted-foreground">Total Payments</p>
+                <p className="text-lg font-bold">{summary.totalPayments}</p>
               </div>
-            </CardHeader>
-            <CardContent><p className={cn("text-2xl font-bold", summary.netProfit >= 0 ? "text-emerald-600" : "text-rose-600")}>{formatCurrency(summary.netProfit)}</p></CardContent>
-          </Card>
+              <div>
+                <p className="text-xs text-muted-foreground">Completed</p>
+                <p className="text-lg font-bold text-emerald-600">{summary.completedCount}</p>
+              </div>
+              <div>
+                <p className="text-xs text-muted-foreground">Planned / Pending</p>
+                <p className="text-lg font-bold text-violet-600">{summary.plannedCount}</p>
+              </div>
+              <div>
+                <p className="text-xs text-muted-foreground">Gross Profit (Completed)</p>
+                <p className={cn("text-lg font-bold", summary.netProfit >= 0 ? "text-emerald-600" : "text-rose-600")}>{formatCurrency(summary.netProfit)}</p>
+              </div>
+            </div>
+          </div>
         </div>
       )}
 
       {dashTab === "vat" && (
-        <div className="grid gap-4 sm:grid-cols-3">
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">VAT Collected</CardTitle>
-              <div className="rounded-lg bg-blue-50 p-1.5 dark:bg-blue-950/40"><ArrowDownLeft className="h-4 w-4 text-blue-600" /></div>
-            </CardHeader>
-            <CardContent>
-              <p className="text-2xl font-bold text-blue-600">{formatCurrency(summary.vatCollected)}</p>
-              <p className="mt-1 text-xs text-muted-foreground">14% collected from clients on inbound</p>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">VAT Paid</CardTitle>
-              <div className="rounded-lg bg-indigo-50 p-1.5 dark:bg-indigo-950/40"><ArrowUpRight className="h-4 w-4 text-indigo-600" /></div>
-            </CardHeader>
-            <CardContent>
-              <p className="text-2xl font-bold text-indigo-600">{formatCurrency(summary.vatPaid)}</p>
-              <p className="mt-1 text-xs text-muted-foreground">14% paid to vendors (deductible)</p>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">Net VAT Payable</CardTitle>
-              <div className={cn("rounded-lg p-1.5", summary.netVatPayable > 0 ? "bg-amber-50 dark:bg-amber-950/40" : "bg-emerald-50 dark:bg-emerald-950/40")}>
-                <Scale className={cn("h-4 w-4", summary.netVatPayable > 0 ? "text-amber-600" : "text-emerald-600")} />
+        <div className="space-y-4">
+          {/* Completed VAT */}
+          <div className="grid gap-4 sm:grid-cols-3">
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between pb-2">
+                <CardTitle className="text-sm font-medium text-muted-foreground">VAT Collected (Completed)</CardTitle>
+                <div className="rounded-lg bg-blue-50 p-1.5 dark:bg-blue-950/40"><ArrowDownLeft className="h-4 w-4 text-blue-600" /></div>
+              </CardHeader>
+              <CardContent>
+                <p className="text-2xl font-bold text-blue-600">{formatCurrency(summary.vatCollected)}</p>
+                <p className="mt-1 text-xs text-muted-foreground">14% collected from clients (we owe gov)</p>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between pb-2">
+                <CardTitle className="text-sm font-medium text-muted-foreground">VAT Paid (Completed)</CardTitle>
+                <div className="rounded-lg bg-indigo-50 p-1.5 dark:bg-indigo-950/40"><ArrowUpRight className="h-4 w-4 text-indigo-600" /></div>
+              </CardHeader>
+              <CardContent>
+                <p className="text-2xl font-bold text-indigo-600">{formatCurrency(summary.vatPaid)}</p>
+                <p className="mt-1 text-xs text-muted-foreground">14% paid to vendors (deductible)</p>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between pb-2">
+                <CardTitle className="text-sm font-medium text-muted-foreground">Net VAT Payable (Completed)</CardTitle>
+                <div className={cn("rounded-lg p-1.5", summary.netVatPayable > 0 ? "bg-amber-50 dark:bg-amber-950/40" : "bg-emerald-50 dark:bg-emerald-950/40")}>
+                  <Scale className={cn("h-4 w-4", summary.netVatPayable > 0 ? "text-amber-600" : "text-emerald-600")} />
+                </div>
+              </CardHeader>
+              <CardContent>
+                <p className={cn("text-2xl font-bold", summary.netVatPayable > 0 ? "text-amber-600" : "text-emerald-600")}>{formatCurrency(summary.netVatPayable)}</p>
+                <p className="mt-1 text-xs text-muted-foreground">{summary.netVatPayable > 0 ? "Owed to government" : "Credit / refundable"}</p>
+              </CardContent>
+            </Card>
+          </div>
+          {/* Planned VAT */}
+          <div className="rounded-xl border bg-violet-50/50 dark:bg-violet-950/20 p-4">
+            <p className="mb-3 text-xs font-semibold uppercase tracking-wider text-violet-600">Planned VAT (Upcoming)</p>
+            <div className="grid gap-4 sm:grid-cols-3">
+              <div>
+                <p className="text-xs text-muted-foreground">Planned VAT to Collect</p>
+                <p className="text-xl font-bold text-blue-500">{formatCurrency(summary.plannedVatCollected)}</p>
               </div>
+              <div>
+                <p className="text-xs text-muted-foreground">Planned VAT to Pay</p>
+                <p className="text-xl font-bold text-indigo-500">{formatCurrency(summary.plannedVatPaid)}</p>
+              </div>
+              <div>
+                <p className="text-xs text-muted-foreground">Planned Net VAT</p>
+                <p className={cn("text-xl font-bold", summary.plannedNetVat > 0 ? "text-amber-500" : "text-emerald-500")}>{formatCurrency(summary.plannedNetVat)}</p>
+              </div>
+            </div>
+          </div>
+          {/* Total VAT */}
+          <Card className="border-2 border-blue-200 dark:border-blue-800">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-medium text-muted-foreground">Total VAT Position (Completed + Planned)</CardTitle>
             </CardHeader>
             <CardContent>
-              <p className={cn("text-2xl font-bold", summary.netVatPayable > 0 ? "text-amber-600" : "text-emerald-600")}>{formatCurrency(summary.netVatPayable)}</p>
-              <p className="mt-1 text-xs text-muted-foreground">{summary.netVatPayable > 0 ? "Owed to government" : "Credit / refundable"}</p>
+              <div className="grid gap-4 sm:grid-cols-3 text-center">
+                <div>
+                  <p className="text-xs text-muted-foreground">Total Collected</p>
+                  <p className="text-xl font-bold text-blue-700">{formatCurrency(summary.totalVatCollected)}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground">Total Paid</p>
+                  <p className="text-xl font-bold text-indigo-700">{formatCurrency(summary.totalVatPaid)}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground">Total Net Payable</p>
+                  <p className={cn("text-xl font-bold", summary.totalNetVat > 0 ? "text-amber-700" : "text-emerald-700")}>{formatCurrency(summary.totalNetVat)}</p>
+                </div>
+              </div>
             </CardContent>
           </Card>
         </div>
       )}
 
       {dashTab === "tax" && (
-        <div className="grid gap-4 sm:grid-cols-2">
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">Tax Deducted by Clients (3%)</CardTitle>
-              <div className="rounded-lg bg-amber-50 p-1.5 dark:bg-amber-950/40"><Percent className="h-4 w-4 text-amber-600" /></div>
+        <div className="space-y-4">
+          {/* Completed Tax */}
+          <div className="grid gap-4 sm:grid-cols-2">
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between pb-2">
+                <CardTitle className="text-sm font-medium text-muted-foreground">Tax Deducted by Clients (Completed)</CardTitle>
+                <div className="rounded-lg bg-amber-50 p-1.5 dark:bg-amber-950/40"><Percent className="h-4 w-4 text-amber-600" /></div>
+              </CardHeader>
+              <CardContent>
+                <p className="text-2xl font-bold text-amber-600">{formatCurrency(summary.taxDeductedByClients)}</p>
+                <p className="mt-1 text-xs text-muted-foreground">3% withheld from your invoices (your credit with gov)</p>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between pb-2">
+                <CardTitle className="text-sm font-medium text-muted-foreground">Tax We Deducted (Completed)</CardTitle>
+                <div className="rounded-lg bg-orange-50 p-1.5 dark:bg-orange-950/40"><FileText className="h-4 w-4 text-orange-600" /></div>
+              </CardHeader>
+              <CardContent>
+                <p className="text-2xl font-bold text-orange-600">{formatCurrency(summary.taxWeDeducted)}</p>
+                <p className="mt-1 text-xs text-muted-foreground">3% withheld from vendors (we owe gov)</p>
+              </CardContent>
+            </Card>
+          </div>
+          {/* Planned Tax */}
+          <div className="rounded-xl border bg-amber-50/50 dark:bg-amber-950/20 p-4">
+            <p className="mb-3 text-xs font-semibold uppercase tracking-wider text-amber-600">Planned Tax Deductions (Upcoming)</p>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div>
+                <p className="text-xs text-muted-foreground">Planned Tax by Clients (3%)</p>
+                <p className="text-xl font-bold text-amber-500">{formatCurrency(summary.plannedTaxByClients)}</p>
+                <p className="text-[10px] text-muted-foreground">Will be withheld from planned income</p>
+              </div>
+              <div>
+                <p className="text-xs text-muted-foreground">Planned Tax We Deduct (3%)</p>
+                <p className="text-xl font-bold text-orange-500">{formatCurrency(summary.plannedTaxWeDeduct)}</p>
+                <p className="text-[10px] text-muted-foreground">We will withhold from planned payments</p>
+              </div>
+            </div>
+          </div>
+          {/* Total Tax */}
+          <Card className="border-2 border-amber-200 dark:border-amber-800">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-medium text-muted-foreground">Total Tax Position (Completed + Planned)</CardTitle>
             </CardHeader>
             <CardContent>
-              <p className="text-2xl font-bold text-amber-600">{formatCurrency(summary.taxDeductedByClients)}</p>
-              <p className="mt-1 text-xs text-muted-foreground">Credit with government (withheld from your invoices)</p>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">Tax We Deducted (3%)</CardTitle>
-              <div className="rounded-lg bg-orange-50 p-1.5 dark:bg-orange-950/40"><FileText className="h-4 w-4 text-orange-600" /></div>
-            </CardHeader>
-            <CardContent>
-              <p className="text-2xl font-bold text-orange-600">{formatCurrency(summary.taxWeDeducted)}</p>
-              <p className="mt-1 text-xs text-muted-foreground">Withheld from vendors (we owe government)</p>
+              <div className="grid gap-4 sm:grid-cols-2 text-center">
+                <div>
+                  <p className="text-xs text-muted-foreground">Total Deducted by Clients</p>
+                  <p className="text-xl font-bold text-amber-700">{formatCurrency(summary.totalTaxByClients)}</p>
+                  <p className="text-[10px] text-muted-foreground">Your total credit with government</p>
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground">Total We Deducted</p>
+                  <p className="text-xl font-bold text-orange-700">{formatCurrency(summary.totalTaxWeDeducted)}</p>
+                  <p className="text-[10px] text-muted-foreground">Total you owe government</p>
+                </div>
+              </div>
             </CardContent>
           </Card>
         </div>
       )}
 
       {dashTab === "bank" && (
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          <Card>
+        <div className="space-y-4">
+          {/* Completed Bank */}
+          <div className="grid gap-4 sm:grid-cols-3">
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between pb-2">
+                <CardTitle className="text-sm font-medium text-muted-foreground">Bank In (Completed)</CardTitle>
+                <div className="rounded-lg bg-emerald-50 p-1.5 dark:bg-emerald-950/40"><ArrowDownLeft className="h-4 w-4 text-emerald-600" /></div>
+              </CardHeader>
+              <CardContent>
+                <p className="text-xl font-bold text-emerald-600">{formatCurrency(summary.bankIn)}</p>
+                <p className="mt-1 text-xs text-muted-foreground">Net received (after tax deductions)</p>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between pb-2">
+                <CardTitle className="text-sm font-medium text-muted-foreground">Bank Out (Completed)</CardTitle>
+                <div className="rounded-lg bg-rose-50 p-1.5 dark:bg-rose-950/40"><ArrowUpRight className="h-4 w-4 text-rose-600" /></div>
+              </CardHeader>
+              <CardContent>
+                <p className="text-xl font-bold text-rose-600">{formatCurrency(summary.bankOut)}</p>
+                <p className="mt-1 text-xs text-muted-foreground">Net paid (after tax deductions)</p>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between pb-2">
+                <CardTitle className="text-sm font-medium text-muted-foreground">Current Bank Balance</CardTitle>
+                <div className={cn("rounded-lg p-1.5", summary.bankBalance >= 0 ? "bg-emerald-50 dark:bg-emerald-950/40" : "bg-rose-50 dark:bg-rose-950/40")}>
+                  <Landmark className={cn("h-4 w-4", summary.bankBalance >= 0 ? "text-emerald-600" : "text-rose-600")} />
+                </div>
+              </CardHeader>
+              <CardContent>
+                <p className={cn("text-xl font-bold", summary.bankBalance >= 0 ? "text-emerald-600" : "text-rose-600")}>{formatCurrency(summary.bankBalance)}</p>
+                <p className="mt-1 text-xs text-muted-foreground">Completed payments only</p>
+              </CardContent>
+            </Card>
+          </div>
+          {/* Planned Bank */}
+          <div className="rounded-xl border bg-violet-50/50 dark:bg-violet-950/20 p-4">
+            <p className="mb-3 text-xs font-semibold uppercase tracking-wider text-violet-600">Planned Bank Movement (After VAT & Tax)</p>
+            <div className="grid gap-4 sm:grid-cols-3">
+              <div>
+                <p className="text-xs text-muted-foreground">Planned Bank In</p>
+                <p className="text-xl font-bold text-emerald-500">{formatCurrency(summary.plannedBankIn)}</p>
+                <p className="text-[10px] text-muted-foreground">Expected net receipts</p>
+              </div>
+              <div>
+                <p className="text-xs text-muted-foreground">Planned Bank Out</p>
+                <p className="text-xl font-bold text-rose-500">{formatCurrency(summary.plannedBankOut)}</p>
+                <p className="text-[10px] text-muted-foreground">Expected net payments</p>
+              </div>
+              <div>
+                <p className="text-xs text-muted-foreground">Planned Net Movement</p>
+                <p className={cn("text-xl font-bold", summary.plannedBankBalance >= 0 ? "text-emerald-500" : "text-rose-500")}>{formatCurrency(summary.plannedBankBalance)}</p>
+              </div>
+            </div>
+          </div>
+          {/* Projected Balance */}
+          <Card className={cn("border-2", summary.projectedBankBalance >= 0 ? "border-emerald-300 dark:border-emerald-700" : "border-rose-300 dark:border-rose-700")}>
             <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">Bank In</CardTitle>
-              <div className="rounded-lg bg-emerald-50 p-1.5 dark:bg-emerald-950/40"><ArrowDownLeft className="h-4 w-4 text-emerald-600" /></div>
-            </CardHeader>
-            <CardContent><p className="text-xl font-bold text-emerald-600">{formatCurrency(summary.bankIn)}</p></CardContent>
-          </Card>
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">Bank Out</CardTitle>
-              <div className="rounded-lg bg-rose-50 p-1.5 dark:bg-rose-950/40"><ArrowUpRight className="h-4 w-4 text-rose-600" /></div>
-            </CardHeader>
-            <CardContent><p className="text-xl font-bold text-rose-600">{formatCurrency(summary.bankOut)}</p></CardContent>
-          </Card>
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">Bank Balance</CardTitle>
-              <div className={cn("rounded-lg p-1.5", summary.bankBalance >= 0 ? "bg-emerald-50 dark:bg-emerald-950/40" : "bg-rose-50 dark:bg-rose-950/40")}>
-                <Landmark className={cn("h-4 w-4", summary.bankBalance >= 0 ? "text-emerald-600" : "text-rose-600")} />
+              <CardTitle className="text-sm font-medium text-muted-foreground">Projected Bank Balance</CardTitle>
+              <div className={cn("rounded-lg p-1.5", summary.projectedBankBalance >= 0 ? "bg-emerald-100 dark:bg-emerald-900" : "bg-rose-100 dark:bg-rose-900")}>
+                <PiggyBank className={cn("h-4 w-4", summary.projectedBankBalance >= 0 ? "text-emerald-700" : "text-rose-700")} />
               </div>
             </CardHeader>
-            <CardContent><p className={cn("text-xl font-bold", summary.bankBalance >= 0 ? "text-emerald-600" : "text-rose-600")}>{formatCurrency(summary.bankBalance)}</p></CardContent>
-          </Card>
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">Planned Balance</CardTitle>
-              <div className="rounded-lg bg-violet-50 p-1.5 dark:bg-violet-950/40"><PiggyBank className="h-4 w-4 text-violet-600" /></div>
-            </CardHeader>
             <CardContent>
-              <p className={cn("text-xl font-bold", summary.plannedBalance >= 0 ? "text-violet-600" : "text-rose-600")}>{formatCurrency(summary.plannedBalance)}</p>
-              <p className="mt-1 text-xs text-muted-foreground">+{formatCurrency(summary.plannedIn)} in / -{formatCurrency(summary.plannedOut)} out</p>
+              <p className={cn("text-2xl font-bold", summary.projectedBankBalance >= 0 ? "text-emerald-700" : "text-rose-700")}>{formatCurrency(summary.projectedBankBalance)}</p>
+              <p className="mt-1 text-xs text-muted-foreground">Current {formatCurrency(summary.bankBalance)} + planned net {formatCurrency(summary.plannedBankBalance)}</p>
             </CardContent>
           </Card>
         </div>

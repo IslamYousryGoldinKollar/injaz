@@ -252,70 +252,108 @@ export async function getFinancialSummary(orgId: string) {
       select: {
         direction: true, status: true,
         grossAmount: true, subtotal: true, vatAmount: true,
-        incomeTaxAmount: true, netBankAmount: true,
+        incomeTaxAmount: true, incomeTaxRate: true, vatRate: true,
+        netBankAmount: true,
         expectedAmount: true, actualAmount: true,
       },
     })
 
-    const completed = payments.filter(p => p.status === "COMPLETED")
-    const planned = payments.filter(p => p.status === "PLANNED" || p.status === "PENDING")
+    const completed = payments.filter((p: any) => p.status === "COMPLETED")
+    const planned = payments.filter((p: any) => p.status === "PLANNED" || p.status === "PENDING")
+    const active = [...completed, ...planned] // all non-cancelled
 
-    const inCompleted = completed.filter(p => p.direction === "INBOUND")
-    const outCompleted = completed.filter(p => p.direction === "OUTBOUND")
-    const inPlanned = planned.filter(p => p.direction === "INBOUND")
-    const outPlanned = planned.filter(p => p.direction === "OUTBOUND")
+    const inCompleted = completed.filter((p: any) => p.direction === "INBOUND")
+    const outCompleted = completed.filter((p: any) => p.direction === "OUTBOUND")
+    const inPlanned = planned.filter((p: any) => p.direction === "INBOUND")
+    const outPlanned = planned.filter((p: any) => p.direction === "OUTBOUND")
+    const inActive = active.filter((p: any) => p.direction === "INBOUND")
+    const outActive = active.filter((p: any) => p.direction === "OUTBOUND")
 
     const sum = (arr: typeof payments, field: keyof typeof payments[0]) =>
-      arr.reduce((s, p) => s + Number(p[field] || 0), 0)
+      arr.reduce((s: number, p: any) => s + Number(p[field] || 0), 0)
 
-    // Gross amounts (100% + 14% VAT = registered invoice total)
+    // ─── GROSS AMOUNTS ───
     const grossRevenue = sum(inCompleted, "grossAmount") || sum(inCompleted, "expectedAmount")
     const grossExpenses = sum(outCompleted, "grossAmount") || sum(outCompleted, "expectedAmount")
+    const plannedGrossIn = sum(inPlanned, "grossAmount") || sum(inPlanned, "expectedAmount")
+    const plannedGrossOut = sum(outPlanned, "grossAmount") || sum(outPlanned, "expectedAmount")
+    const totalGrossIncome = grossRevenue + plannedGrossIn
+    const totalGrossExpenses = grossExpenses + plannedGrossOut
 
-    // VAT tracking
-    const vatCollected = sum(inCompleted, "vatAmount")   // VAT we collected from clients (we owe gov)
-    const vatPaid = sum(outCompleted, "vatAmount")       // VAT we paid to vendors (deductible)
-    const netVatPayable = vatCollected - vatPaid           // Net VAT we owe to government
+    // ─── VAT TRACKING ───
+    const vatCollected = sum(inCompleted, "vatAmount")       // VAT we collected from clients (we owe gov)
+    const vatPaid = sum(outCompleted, "vatAmount")           // VAT we paid to vendors (deductible)
+    const netVatPayable = vatCollected - vatPaid
+    const plannedVatCollected = sum(inPlanned, "vatAmount")  // Planned VAT from incoming
+    const plannedVatPaid = sum(outPlanned, "vatAmount")      // Planned VAT on outgoing
+    const plannedNetVat = plannedVatCollected - plannedVatPaid
+    const totalVatCollected = vatCollected + plannedVatCollected
+    const totalVatPaid = vatPaid + plannedVatPaid
+    const totalNetVat = totalVatCollected - totalVatPaid
 
-    // Income tax deduction tracking
-    const taxDeductedByClients = sum(inCompleted, "incomeTaxAmount") // 3% clients withheld (our credit with gov)
-    const taxWeDeducted = sum(outCompleted, "incomeTaxAmount")       // 3% we withheld from vendors (we owe gov)
+    // ─── TAX DEDUCTION TRACKING (3%) ───
+    const taxDeductedByClients = sum(inCompleted, "incomeTaxAmount")   // 3% clients withheld (our credit)
+    const taxWeDeducted = sum(outCompleted, "incomeTaxAmount")         // 3% we withheld from vendors (we owe gov)
+    const plannedTaxByClients = sum(inPlanned, "incomeTaxAmount")
+    const plannedTaxWeDeduct = sum(outPlanned, "incomeTaxAmount")
+    const totalTaxByClients = taxDeductedByClients + plannedTaxByClients
+    const totalTaxWeDeducted = taxWeDeducted + plannedTaxWeDeduct
 
-    // Bank balance (actual money in/out after deductions)
+    // ─── BANK (NET AMOUNTS AFTER VAT & TAX) ───
     const bankIn = sum(inCompleted, "netBankAmount") || sum(inCompleted, "actualAmount") || grossRevenue
     const bankOut = sum(outCompleted, "netBankAmount") || sum(outCompleted, "actualAmount") || grossExpenses
     const bankBalance = bankIn - bankOut
+    const plannedBankIn = sum(inPlanned, "netBankAmount") || (plannedGrossIn - sum(inPlanned, "incomeTaxAmount"))
+    const plannedBankOut = sum(outPlanned, "netBankAmount") || (plannedGrossOut - sum(outPlanned, "incomeTaxAmount"))
+    const plannedBankBalance = plannedBankIn - plannedBankOut
+    const projectedBankBalance = bankBalance + plannedBankBalance
 
-    // Planned (future)
-    const plannedIn = sum(inPlanned, "grossAmount") || sum(inPlanned, "expectedAmount")
-    const plannedOut = sum(outPlanned, "grossAmount") || sum(outPlanned, "expectedAmount")
+    // ─── NET BALANCE (income - expenses including VAT & 3% tax) ───
+    const totalNetIncome = sum(inActive, "netBankAmount") || (totalGrossIncome - totalTaxByClients)
+    const totalNetExpenses = sum(outActive, "netBankAmount") || (totalGrossExpenses - totalTaxWeDeducted)
+    const netBalanceAfterAll = totalNetIncome - totalNetExpenses
 
     return {
-      grossRevenue,
-      grossExpenses,
-      netProfit: grossRevenue - grossExpenses,
-      vatCollected,
-      vatPaid,
-      netVatPayable,
-      taxDeductedByClients,
-      taxWeDeducted,
-      bankBalance,
-      bankIn,
-      bankOut,
-      plannedIn,
-      plannedOut,
-      plannedBalance: bankBalance + plannedIn - plannedOut,
+      // Overview
+      grossRevenue, grossExpenses, netProfit: grossRevenue - grossExpenses,
+      totalGrossIncome, totalGrossExpenses,
+      netBalanceAfterAll,
+      // VAT
+      vatCollected, vatPaid, netVatPayable,
+      plannedVatCollected, plannedVatPaid, plannedNetVat,
+      totalVatCollected, totalVatPaid, totalNetVat,
+      // Tax
+      taxDeductedByClients, taxWeDeducted,
+      plannedTaxByClients, plannedTaxWeDeduct,
+      totalTaxByClients, totalTaxWeDeducted,
+      // Bank
+      bankBalance, bankIn, bankOut,
+      plannedBankIn, plannedBankOut, plannedBankBalance,
+      projectedBankBalance,
+      // Planned gross
+      plannedIn: plannedGrossIn, plannedOut: plannedGrossOut,
+      plannedBalance: bankBalance + plannedGrossIn - plannedGrossOut,
       totalPayments: payments.length,
+      completedCount: completed.length,
+      plannedCount: planned.length,
     }
   } catch (error) {
     console.error("[getFinancialSummary] DB error:", error)
     return {
       grossRevenue: 0, grossExpenses: 0, netProfit: 0,
+      totalGrossIncome: 0, totalGrossExpenses: 0,
+      netBalanceAfterAll: 0,
       vatCollected: 0, vatPaid: 0, netVatPayable: 0,
+      plannedVatCollected: 0, plannedVatPaid: 0, plannedNetVat: 0,
+      totalVatCollected: 0, totalVatPaid: 0, totalNetVat: 0,
       taxDeductedByClients: 0, taxWeDeducted: 0,
+      plannedTaxByClients: 0, plannedTaxWeDeduct: 0,
+      totalTaxByClients: 0, totalTaxWeDeducted: 0,
       bankBalance: 0, bankIn: 0, bankOut: 0,
+      plannedBankIn: 0, plannedBankOut: 0, plannedBankBalance: 0,
+      projectedBankBalance: 0,
       plannedIn: 0, plannedOut: 0, plannedBalance: 0,
-      totalPayments: 0,
+      totalPayments: 0, completedCount: 0, plannedCount: 0,
     }
   }
 }
