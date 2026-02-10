@@ -229,6 +229,13 @@ export default function FinancialsPage() {
         notes: editForm.notes || undefined,
         actualDate: isCompleted ? new Date(editForm.date) : null,
         actualAmount: isCompleted ? b.netBank : null,
+        subtotal: b.subtotal,
+        vatAmount: b.vatAmount,
+        vatRate: editForm.vatEnabled ? editForm.vatRate : 0,
+        incomeTaxAmount: b.incomeTax,
+        incomeTaxRate: editForm.taxDeductionEnabled ? editForm.taxRate : 0,
+        grossAmount: b.grossNum,
+        netBankAmount: b.netBank,
       } as any)
       const updated = await getPaymentById(selected.id)
       setSelected(updated)
@@ -236,6 +243,7 @@ export default function FinancialsPage() {
       load()
     } catch (err) {
       console.error("Failed to update payment:", err)
+      alert("Failed to update payment. Check console for details.")
     }
   }
 

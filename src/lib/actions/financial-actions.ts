@@ -112,8 +112,24 @@ export async function updatePayment(id: string, data: {
   reference?: string
   description?: string
   notes?: string
+  subtotal?: number
+  vatAmount?: number
+  vatRate?: number
+  incomeTaxAmount?: number
+  incomeTaxRate?: number
+  grossAmount?: number
+  netBankAmount?: number
 }) {
-  return prisma.payment.update({ where: { id }, data: data as never })
+  try {
+    const clean: Record<string, any> = {}
+    for (const [k, v] of Object.entries(data)) {
+      if (v !== undefined) clean[k] = v
+    }
+    return await prisma.payment.update({ where: { id }, data: clean as never })
+  } catch (error: any) {
+    console.error("[updatePayment] DB error:", error?.message || error)
+    throw new Error(`Payment update failed: ${error?.message || "Unknown error"}`)
+  }
 }
 
 export async function deletePayment(id: string) {

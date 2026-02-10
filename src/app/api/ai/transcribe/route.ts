@@ -9,9 +9,13 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "No audio file provided" }, { status: 400 })
     }
 
+    if (!process.env.GOOGLE_GENAI_API_KEY) {
+      return NextResponse.json({ error: "GOOGLE_GENAI_API_KEY is not configured" }, { status: 500 })
+    }
+
     // Use Google Cloud Speech-to-Text via Gemini's audio capabilities
     const { GoogleGenerativeAI } = await import("@google/generative-ai")
-    const genAI = new GoogleGenerativeAI(process.env.GOOGLE_GENAI_API_KEY || "")
+    const genAI = new GoogleGenerativeAI(process.env.GOOGLE_GENAI_API_KEY)
     const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" })
 
     const buffer = Buffer.from(await audioFile.arrayBuffer())
