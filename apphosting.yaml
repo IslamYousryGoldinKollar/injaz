@@ -2,9 +2,17 @@ runConfig:
   runtime: nodejs22
 
 env:
+  # Prisma database connection (Prisma Accelerate)
   - variable: DATABASE_URL
     secret: DATABASE_URL
+
+  # Google Gemini AI — used for chat, voice transcription, function calling
   - variable: GOOGLE_GENAI_API_KEY
     secret: GOOGLE_GENAI_API_KEY
+
+  # Telegram bot — used for voice note drafts
   - variable: TELEGRAM_BOT_TOKEN
     secret: TELEGRAM_BOT_TOKEN
+
+  # Note: NEXT_PUBLIC_FIREBASE_* vars are auto-provided via FIREBASE_WEBAPP_CONFIG
+  # on Firebase App Hosting — no need to set them manually.
